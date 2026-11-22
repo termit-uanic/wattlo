@@ -19,7 +19,7 @@ class DialModelTest {
 
     @Test fun yellowSlotFollowsTheSetting() {
         assertEquals(Role.AMBER, DialModel.roleOf(flags, maybe, 3, yellowAsOutage = true))
-        assertEquals(Role.LIME, DialModel.roleOf(flags, maybe, 3, yellowAsOutage = false))
+        assertEquals(Role.GREEN, DialModel.roleOf(flags, maybe, 3, yellowAsOutage = false))
     }
 
     @Test fun yellowWinsEvenWhenTheFlagCountsItAsNoPower() {
