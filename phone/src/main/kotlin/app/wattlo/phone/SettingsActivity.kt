@@ -552,7 +552,7 @@ class SettingsActivity : Activity() {
             row.label.setTextColor(if (warn) Palette.AMBER else Palette.GREY)
             row.sw.isChecked = on
         }
-        pushRow.label.text = getString(R.string.push_setting)
+        pushRow.label.text = getString(CoreR.string.push_setting)
         pushRow.label.setTextColor(Palette.GREY)
         pushRow.sw.isChecked = Settings.pushEnabled(this)
         quietRow.text = getString(

@@ -129,4 +129,5 @@
     <string name="app_rings_title">Кільце в застосунку</string>
     <string name="app_labels_title">Підписи годин у застосунку (два кільця)</string>
     <string name="tile_next_title">На тайлі: скільки триває наступна фаза</string>
+    <string name="push_setting">Миттєві оновлення графіка (push через Google)</string>
 </resources>

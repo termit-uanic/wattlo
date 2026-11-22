@@ -129,4 +129,5 @@
     <string name="app_rings_title">Кольцо в приложении</string>
     <string name="app_labels_title">Подписи часов в приложении (два кольца)</string>
     <string name="tile_next_title">На тайле: сколько длится следующая фаза</string>
+    <string name="push_setting">Мгновенные обновления графика (push через Google)</string>
 </resources>

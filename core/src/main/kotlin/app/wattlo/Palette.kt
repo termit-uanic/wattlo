@@ -10,6 +10,9 @@ object Palette {
     const val NODATA_DIM = 0xFF22262B.toInt()
     const val GREY = 0xFFC9CDD3.toInt()
     const val LABEL = 0xFF7D838C.toInt()
+    // a yellow slot that counts as power on: green with a yellow tint, so that it can still be told from plain power
+    const val LIME = 0xFFCDE85A.toInt()
+    const val LIME_DIM = 0xFF505B24.toInt()
     const val AMBER = 0xFFFFC14D.toInt()
     const val AMBER_DIM = 0xFF5A4520.toInt()
     const val WHITE = 0xFFFFFFFF.toInt()

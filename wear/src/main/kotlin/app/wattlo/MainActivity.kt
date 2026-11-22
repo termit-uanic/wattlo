@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var notifyToday: SwitchRow
     private lateinit var tileNext: SwitchRow
     private lateinit var notifyTomorrow: SwitchRow
+    private lateinit var pushRow: SwitchRow
     private lateinit var quietRow: TextView
     private lateinit var tileRow: TextView
     private lateinit var tileLabelsRow: TextView
@@ -119,6 +120,10 @@ class MainActivity : Activity() {
             if (on) askNotificationPermission()
             render()
         }
+        pushRow = switchRow {
+            Settings.setPushEnabled(this, !Settings.pushEnabled(this))
+            render()
+        }
 
         quietRow = settingRow { pickQuiet() }
         tileRow = settingRow { pickTileRings() }
@@ -151,6 +156,7 @@ class MainActivity : Activity() {
             add(notifyOnRow)
             add(notifyToday.card)
             add(notifyTomorrow.card)
+            add(pushRow.card)
             add(quietRow, last = true)
         }
 
@@ -498,6 +504,10 @@ class MainActivity : Activity() {
             row.label.setTextColor(if (warn) Palette.AMBER else Palette.GREY)
             row.sw.isChecked = on
         }
+
+        pushRow.label.text = getString(R.string.push_setting)
+        pushRow.label.setTextColor(Palette.GREY)
+        pushRow.sw.isChecked = Settings.pushEnabled(this)
 
         settingsBtn.text = getString(
             if (settingsBox.visibility == View.VISIBLE) R.string.settings_expanded else R.string.settings_collapsed,

@@ -2,16 +2,16 @@ package app.wattlo
 
 /** Pure logic of the day dial: which colour a slot gets, which slots are over, where "now" is. */
 object DialModel {
-    enum class Role { GREEN, RED, AMBER, NO_DATA }
+    enum class Role { GREEN, RED, AMBER, LIME, NO_DATA }
 
     /**
      * The colour role of slot [i]. A yellow slot (the switching time after an outage) is amber when the
-     * "yellow slots mean an outage" setting is on and green when it means power is on; a red slot is an
+     * "yellow slots mean an outage" setting is on and lime (power on, but still marked) when it means power is on; a red slot is an
      * outage; everything else is power. Without data ([flags] null) the slot is neutral.
      */
     fun roleOf(flags: BooleanArray?, maybe: BooleanArray?, i: Int, yellowAsOutage: Boolean): Role = when {
         flags == null -> Role.NO_DATA
-        maybe?.getOrNull(i) == true -> if (yellowAsOutage) Role.AMBER else Role.GREEN
+        maybe?.getOrNull(i) == true -> if (yellowAsOutage) Role.AMBER else Role.LIME
         flags.getOrNull(i) == true -> Role.RED
         else -> Role.GREEN
     }

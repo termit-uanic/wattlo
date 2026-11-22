@@ -113,6 +113,7 @@ object TileRing {
         DialModel.Role.RED -> if (past) Palette.RED_DIM else Palette.RED
         DialModel.Role.AMBER -> if (past) Palette.AMBER_DIM else Palette.AMBER
         DialModel.Role.GREEN -> if (past) Palette.GREEN_DIM else Palette.GREEN
+        DialModel.Role.LIME -> if (past) Palette.LIME_DIM else Palette.LIME
         DialModel.Role.NO_DATA -> Palette.NODATA
     }
 
