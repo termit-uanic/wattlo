@@ -52,7 +52,7 @@ class JsonSourcesTest {
         for (i in 30..35) assertEquals("slot $i", 1, s[i])   // 15:00-18:00 no
         assertEquals(2, s[36]); assertEquals(0, s[37])         // 18:00-19:00 mfirst
         for (i in 42..45) assertEquals("slot $i", 1, s[i])   // 21:00-23:00 no
-        assertEquals(0, s[46]); assertEquals(2, s[47])         // 23:00-24:00 msecond
+        assertEquals(1, s[46]); assertEquals(2, s[47])         // 23:00-24:00 msecond: off, then may be off
         assertEquals(0, s[0]); assertEquals(0, s[29])
     }
 

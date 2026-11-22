@@ -55,8 +55,10 @@ object JsonSources {
     /**
      * A region's file: `{"lastUpdated": "2026-11-21T10:31:22.702Z", "fact": {"data": {"<start of the day, unix
      * seconds>": {"GPV1.1": {"1": "yes", "2": "no", ...}}}}}`. Key "h" is the hour that ends at h:00; the values
-     * are yes (on), no (off), first / second (off in the first / second half of the hour), maybe, mfirst, msecond
-     * (the same, "may be off"). [source] is named in the message when the file is out of date: it has no day of
+     * are yes (on), no (off), first / second (off in the first / second half of the hour), maybe ("may be off"),
+     * mfirst ("may be off" in the first half, on in the second) and msecond (off in the first half, "may be off"
+     * in the second): the last two checked against poe.pl.ua, the official schedule, on all queues of Poltava.
+     * [source] is named in the message when the file is out of date: it has no day of
      * today (the script stopped, or the new day has not been collected yet) or "lastUpdated" is older than [MAX_AGE].
      */
     fun mirror(json: String, queue: String, source: String, now: Instant = Instant.now()): Map<LocalDate, IntArray> {
@@ -81,7 +83,7 @@ object JsonSources {
                     "first" -> 1 to 0
                     "second" -> 0 to 1
                     "mfirst" -> 2 to 0
-                    "msecond" -> 0 to 2
+                    "msecond" -> 1 to 2
                     else -> 0 to 0
                 }
                 states[(h - 1) * 2] = a
