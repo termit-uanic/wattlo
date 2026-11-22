@@ -148,8 +148,30 @@ private val TERNOPIL_QUEUES = listOf("1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "
 class FetchError(@androidx.annotation.StringRes val res: Int, vararg val args: Any) : Exception()
 
 object Http {
+    /** What the requests inside a [sharing] block have already got; null outside of one. */
+    private val shared = ThreadLocal<MutableMap<String, String>?>()
+
+    /** The real request, replaced in tests. */
+    internal var transport: (String, String?) -> String = ::network
+
+    /**
+     * Inside [block] the same request (address and form) goes to the network once: a refresh asks for the main queue
+     * and for every extra queue, but they all live on the same page or file of the region.
+     */
+    fun <T> sharing(block: () -> T): T {
+        shared.set(mutableMapOf())
+        try { return block() } finally { shared.remove() }
+    }
+
     /** GET, or a form-urlencoded POST when [form] is given. */
     fun request(url: String, form: String? = null): String {
+        val cache = shared.get() ?: return transport(url, form)
+        val key = url + "\n" + (form ?: "")
+        cache[key]?.let { return it }
+        return transport(url, form).also { cache[key] = it }
+    }
+
+    private fun network(url: String, form: String?): String {
         val conn = java.net.URL(url).openConnection() as HttpURLConnection
         try {
             conn.connectTimeout = 15_000
@@ -597,7 +619,9 @@ object Fetcher {
      * If only the fetch time changed, just the tile is redrawn: it is the only place that shows the time
      * ("updated HH:MM") and it would otherwise disagree with the app until its next hourly rebuild.
      */
-    fun refreshAndNotify(c: Context): Boolean {
+    fun refreshAndNotify(c: Context): Boolean = Http.sharing { refreshAndNotifyShared(c) }
+
+    private fun refreshAndNotifyShared(c: Context): Boolean {
         val before = Store.snapshot(c)
         val fetchedBefore = Store.fetchedAt(c)
         val ok = refresh(c)
