@@ -197,6 +197,40 @@ object Http {
     }
 }
 
+/**
+ * An extra queue (phone app only) is a queue of any region: its id is "REGION:queue", for example "LVIV:1.1". The id is
+ * also the key of its cache and of the name the user gave it. The main queue has no id (it is the one in the settings).
+ */
+object Extra {
+    /** At most this many: every region the extra queues live in costs a request per refresh. */
+    const val MAX = 8
+
+    fun id(region: Region, queue: String) = "${region.name}:$queue"
+
+    fun region(id: String): Region? = id.substringBefore(':', "").let { n -> Region.entries.firstOrNull { it.name == n } }
+
+    fun queue(id: String): String = id.substringAfter(':', id)
+
+    fun isValid(id: String): Boolean = region(id)?.let { queue(id) in it.queues } == true
+
+    /** "Poltava" for "Poltava region", "Київ" for "Київ": the name of the region without the kind of region. */
+    fun shortRegion(c: android.content.Context, region: Region): String =
+        c.getString(region.nameRes).removeSuffix(" область").removeSuffix(" region").removeSuffix(" city")
+
+    /** "Queue 3.2", or "Queue 3.2 · Lviv" when the queue is in another region than the main queue. */
+    fun title(c: android.content.Context, id: String): String {
+        val r = region(id)
+        val q = c.getString(R.string.queue_name, queue(id))
+        return if (r == null || r == Settings.region(c)) q else q + " · " + shortRegion(c, r)
+    }
+
+    /** The queue of the id as a person says it: "3.2" in the main queue's region, "Lviv 3.2" in another one. */
+    fun text(c: android.content.Context, id: String): String {
+        val r = region(id) ?: return id
+        return if (r == Settings.region(c)) queue(id) else shortRegion(c, r) + " " + queue(id)
+    }
+}
+
 /** Settings: source + queue, display and notification options. */
 object Settings {
     /** Set by the watch app: its display options are the ones the phone sets for the watch (see [Synced]). */
@@ -319,36 +353,42 @@ object Settings {
         val sourceChanged = src != source(c)
         p(c).edit().putString("source", src.name).putString("queue", q).apply()
         // the new main queue is no longer an extra one
-        if (q in extraQueues(c)) writeExtras(c, extraQueues(c) - q)
-        if (sourceChanged) Store.clearAll(c) else { Store.clear(c); Store.clear(c, q) }
+        val id = Extra.id(r, q)
+        if (id in extraQueues(c)) writeExtras(c, extraQueues(c) - id)
+        if (sourceChanged) Store.clearAll(c) else { Store.clear(c); Store.clear(c, id) }
         touch(c)
     }
 
     /**
      * Another region: its operator has its own queues and its own sites, so the source goes to the region's
-     * default, the queue to the first of the region, the extra queues and their names go away, and no cache applies.
+     * default, the queue to the first of the region, and the main queue's cache does not apply. The extra queues
+     * (they have regions of their own) stay, except the one that is now the main queue.
      */
     fun setRegion(c: Context, region: Region) {
         if (region == region(c)) return
-        val e = p(c).edit().putString("region", region.name).putString("source", region.sources.first().name)
-            .putString("queue", region.defaultQueue).putString("extraQueues", "")
-        Region.ALL_QUEUES.forEach { e.remove("label_$it") }
-        e.apply()
+        val keep = extraQueues(c).filter { it != Extra.id(region, region.defaultQueue) }
+        p(c).edit().putString("region", region.name).putString("source", region.sources.first().name)
+            .putString("queue", region.defaultQueue).apply()
+        writeExtras(c, keep)
         Store.clearAll(c)
         touch(c)
     }
 
     /**
      * Extra queues, for the phone app only: it can show their state next to the main queue [queue]. They are not
-     * synchronised, and the watch, the widgets and the reminders only ever use the main queue.
+     * synchronised, and the watch, the widgets and the reminders only ever use the main queue. Ids, see [Extra];
+     * a stored value that is not one (an older version kept plain queue names) is ignored.
      */
-    fun extraQueues(c: Context): List<String> =
-        (p(c).getString("extraQueues", "") ?: "").split(",").filter { it in queues(c) }.distinct().filter { it != queue(c) }
+    fun extraQueues(c: Context): List<String> {
+        val main = Extra.id(region(c), queue(c))
+        return (p(c).getString("extraQueues", "") ?: "").split(",")
+            .filter { Extra.isValid(it) && it != main }.distinct().take(Extra.MAX)
+    }
 
     fun setExtraQueues(c: Context, list: Collection<String>) {
         val old = extraQueues(c)
-        val all = queues(c)
-        val new = list.filter { it in all && it != queue(c) }.distinct().sortedBy { all.indexOf(it) }
+        val main = Extra.id(region(c), queue(c))
+        val new = list.filter { Extra.isValid(it) && it != main }.distinct().take(Extra.MAX)
         writeExtras(c, new)
         (old - new.toSet()).forEach { Store.clear(c, it) } // no cache for a queue that is no longer shown
     }
@@ -356,12 +396,12 @@ object Settings {
     const val MAX_LABEL = 16
 
     /** A short name of an extra queue ("parents", "sister"), for the phone app only like the extra queues; "" when none. */
-    fun queueLabel(c: Context, q: String): String = p(c).getString("label_$q", "").orEmpty()
+    fun queueLabel(c: Context, id: String): String = p(c).getString("label_$id", "").orEmpty()
 
-    fun setQueueLabel(c: Context, q: String, label: String) {
-        if (q !in Region.ALL_QUEUES) return
+    fun setQueueLabel(c: Context, id: String, label: String) {
+        if (!Extra.isValid(id)) return
         val clean = label.trim().take(MAX_LABEL)
-        p(c).edit().apply { if (clean.isEmpty()) remove("label_$q") else putString("label_$q", clean) }.apply()
+        p(c).edit().apply { if (clean.isEmpty()) remove("label_$id") else putString("label_$id", clean) }.apply()
     }
 
     private fun writeExtras(c: Context, list: List<String>) {
@@ -440,14 +480,12 @@ object Settings {
         if (dataChanged) {
             // the old schedule no longer applies; a new main queue is no longer an extra one
             if (before.first != region(c)) {
-                // another region: its extra queues and their names do not apply either
-                writeExtras(c, emptyList())
-                Region.ALL_QUEUES.forEach { p(c).edit().remove("label_$it").apply() }
+                // another region: the main queue's cache does not apply; the extra queues stay (they have regions of their own)
                 Store.clearAll(c)
             } else {
-                if (before.second != source(c)) Store.clearAll(c) else { Store.clear(c); Store.clear(c, queue(c)) }
-                writeExtras(c, extraQueues(c))
+                if (before.second != source(c)) Store.clearAll(c) else { Store.clear(c); Store.clear(c, Extra.id(region(c), queue(c))) }
             }
+            writeExtras(c, extraQueues(c)) // without the one that is the main queue now
         }
         return dataChanged
     }
@@ -534,11 +572,8 @@ object Store {
 
     fun clear(c: Context, q: String? = null) { p(c, q).edit().clear().apply() }
 
-    /** The main queue's cache and the caches of all extra queues: the source changed, none of them applies. */
-    fun clearAll(c: Context) {
-        clear(c)
-        Region.ALL_QUEUES.forEach { clear(c, it) }
-    }
+    /** The source or the region of the main queue changed: its cache does not apply. The extra queues use sources of their own. */
+    fun clearAll(c: Context) { clear(c) }
 
     fun fetchedAt(c: Context, q: String? = null): Long = p(c, q).getLong("fetched", 0L)
 
@@ -576,9 +611,10 @@ object Fetcher {
     /** [extra] = null: the main queue; otherwise one of the extra queues, which only fills its own cache. */
     private fun fetch(c: Context, extra: String?): Boolean {
         if (extra == null) Refresh.noteAttempt(c)
-        val region = Settings.region(c)
-        val source = Settings.source(c)
-        val queue = extra ?: Settings.queue(c)
+        // an extra queue lives in a region of its own and uses that region's usual order of sources
+        val region = extra?.let { Extra.region(it) } ?: Settings.region(c)
+        val source = if (extra != null) region.sources.first() else Settings.source(c)
+        val queue = if (extra != null) Extra.queue(extra) else Settings.queue(c)
         val today = LocalDate.now(Schedule.ZONE)
         val hour = java.time.LocalTime.now(Schedule.ZONE).hour
         // Once tomorrow's schedule is cached it rarely changes: recheck it hourly instead of on every refresh
@@ -588,7 +624,7 @@ object Fetcher {
         val withTomorrow = tomorrow !in Store.raw(c, extra) || now - Store.tomorrowCheckedAt(c, extra) >= TOMORROW_RECHECK_MS
         val days = loadWithFallback(region, source, queue, today, hour, withTomorrow)
         // settings changed while the request was in flight: the result is stale
-        if (region != Settings.region(c) || source != Settings.source(c) || queue != (extra ?: Settings.queue(c))) return false
+        if (extra == null && (region != Settings.region(c) || source != Settings.source(c) || queue != Settings.queue(c))) return false
         if (extra != null && extra !in Settings.extraQueues(c)) return false
         // Tomorrow was asked for but is gone (the source withdrew it): don't keep showing the old copy.
         // Today is kept: a missing today is more likely a glitch of the site than a real change.

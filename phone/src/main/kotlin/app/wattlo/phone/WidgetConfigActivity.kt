@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import app.wattlo.Extra
 import app.wattlo.Palette
 import app.wattlo.Settings
 import app.wattlo.core.R as CoreR
@@ -105,7 +106,7 @@ class WidgetConfigActivity : Activity() {
     /** "Queue 1.1", with the name the user gave an extra queue ("Queue 1.1 — parents"). */
     private fun named(q: String): String {
         val label = Settings.queueLabel(this, q)
-        return getString(CoreR.string.queue_name, q) + if (label.isEmpty()) "" else " — $label"
+        return Extra.title(this, q) + if (label.isEmpty()) "" else " — $label"
     }
 
     private fun pickQueue() {

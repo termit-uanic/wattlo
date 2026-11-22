@@ -11,6 +11,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.widget.RemoteViews
+import app.wattlo.Extra
 import app.wattlo.Fmt
 import app.wattlo.Palette
 import app.wattlo.Refresh
@@ -168,7 +169,8 @@ object Widgets {
             when { st == null -> CoreR.string.no_data; switching -> R.string.widget_state_switching; st.off -> R.string.widget_state_off; else -> R.string.widget_state_on }
         )
 
-        val queue: String = c.getString(CoreR.string.queue_upper, q ?: Settings.queue(c)) +
+        val queue: String = c.getString(CoreR.string.queue_upper, q?.let { Extra.queue(it) } ?: Settings.queue(c)) +
+            (q?.let { Extra.region(it) }?.takeIf { it != Settings.region(c) }?.let { " · " + Extra.shortRegion(c, it).uppercase() } ?: "") +
             (q?.let { Settings.queueLabel(c, it) }?.takeIf { it.isNotEmpty() }?.let { " · " + it.uppercase() } ?: "")
 
         /** "1h 23m", rounded up like everywhere else; "≥ 1h 23m" when the data ends before the change. */

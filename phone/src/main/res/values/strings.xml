@@ -91,4 +91,8 @@
     <string name="setup_rerun_title">Setup wizard</string>
     <string name="setup_rerun_hint">Choose the queue and the look again</string>
     <string name="search_hint">Search</string>
+    <string name="queues_extra_add">Add a queue…</string>
+    <string name="queues_extra_remove">Remove %1$s?</string>
+    <string name="queues_extra_remove_button">Remove</string>
+    <string name="queues_extra_max">Up to %1$d extra queues</string>
 </resources>

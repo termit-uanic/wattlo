@@ -91,4 +91,8 @@
     <string name="setup_rerun_title">Майстер налаштування</string>
     <string name="setup_rerun_hint">Заново обрати чергу та вигляд</string>
     <string name="search_hint">Пошук</string>
+    <string name="queues_extra_add">Додати чергу…</string>
+    <string name="queues_extra_remove">Видалити «%1$s»?</string>
+    <string name="queues_extra_remove_button">Видалити</string>
+    <string name="queues_extra_max">Можна додати до %1$d додаткових черг</string>
 </resources>

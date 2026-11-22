@@ -19,6 +19,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import app.wattlo.Extra
 import app.wattlo.Fetcher
 import app.wattlo.Notify
 import app.wattlo.Palette
@@ -106,7 +107,13 @@ class SetupActivity : Activity() {
 
     // ---------------------------------------------------------------- steps
 
+    /** The step that is on the screen: a tap on a chip shows the same step again and must not scroll it to the top. */
+    private var shownStep = -1
+
     private fun show() {
+        val sameStep = step == shownStep
+        val y = scroll.scrollY
+        shownStep = step
         dots.removeAllViews()
         repeat(STEPS) { i ->
             dots.addView(View(this).apply {
@@ -118,7 +125,8 @@ class SetupActivity : Activity() {
             when (step) { 0 -> welcome(); 1 -> regionStep(); 2 -> queueStep(); 3 -> extrasStep(); 4 -> lookStep(); else -> remindersStep() },
             LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
         )
-        scroll.scrollTo(0, 0)
+        // a new step starts at the top; the same step stays where the user scrolled it (after the new content is laid out)
+        if (sameStep) scroll.post { scroll.scrollTo(0, y) } else scroll.scrollTo(0, 0)
         next.text = getString(when (step) { 0 -> R.string.setup_start; LAST -> R.string.setup_finish; else -> R.string.setup_next })
         skip.text = getString(if (step == 0) R.string.setup_skip_all else R.string.setup_skip)
         skip.visibility = if (step == 0 || step == 3 || step == LAST) View.VISIBLE else View.INVISIBLE
@@ -172,7 +180,7 @@ class SetupActivity : Activity() {
         addView(filtered(1, Region.sorted(this@SetupActivity).map { r ->
             getString(r.nameRes) to {
                 chip(getString(r.nameRes), r == region, multi = false) {
-                    if (r != region) { region = r; main = r.defaultQueue; extras.clear() }
+                    if (r != region) { region = r; main = r.defaultQueue; extras.remove(Extra.id(r, main)) }
                     show()
                 }
             }
@@ -203,7 +211,7 @@ class SetupActivity : Activity() {
     private fun queueStep(): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         addView(title(R.string.setup_queue_title, R.string.setup_queue_body))
-        addView(filtered(columns(), region.queues.map { q -> q to { chip(q, q == main, multi = false) { main = q; extras.remove(q); show() } } }))
+        addView(filtered(columns(), region.queues.map { q -> q to { chip(q, q == main, multi = false) { main = q; extras.remove(Extra.id(region, q)); show() } } }))
         // where to find out the queue: the power company's own table for Poltava, the page of the region otherwise
         val poltava = region == Region.POLTAVA
         addView(ui.label(13.5f, Palette.GREEN).apply {
@@ -218,7 +226,8 @@ class SetupActivity : Activity() {
         orientation = LinearLayout.VERTICAL
         addView(title(R.string.setup_extras_title, R.string.setup_extras_body))
         addView(filtered(columns(), region.queues.filter { it != main }.map { q ->
-            q to { chip(q, q in extras, multi = true) { if (q in extras) extras.remove(q) else extras.add(q); show() } }
+            val id = Extra.id(region, q)
+            q to { chip(q, id in extras, multi = true) { if (id in extras) extras.remove(id) else if (extras.size < Extra.MAX) extras.add(id); show() } }
         }))
     }
 
@@ -326,7 +335,7 @@ class SetupActivity : Activity() {
     /** The main queue and the extra ones, right when the user has chosen them. */
     private fun applyQueues() {
         Settings.chooseQueue(this, main)
-        Settings.setExtraQueues(this, extras - main)
+        Settings.setExtraQueues(this, extras - Extra.id(region, main))
         Refresh.now(this)
     }
 

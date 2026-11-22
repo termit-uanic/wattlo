@@ -18,6 +18,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import app.wattlo.DialData
 import app.wattlo.DialView
+import app.wattlo.Extra
 import app.wattlo.Fetcher
 import app.wattlo.Fmt
 import app.wattlo.Palette
@@ -136,7 +137,11 @@ class MainActivity : Activity() {
             val on = q == cur
             queueBar.addView(
                 ui.label(15f, if (on) Palette.WHITE else Palette.LABEL, bold = on).apply {
-                    text = q ?: Settings.queue(this@MainActivity)
+                    // an extra queue: the name the user gave it, else the queue (with its region if that is another one)
+                    text = if (q == null) Settings.queue(this@MainActivity)
+                        else Settings.queueLabel(this@MainActivity, q).ifEmpty { Extra.text(this@MainActivity, q) }
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
                     gravity = Gravity.CENTER
                     setPadding(0, ui.dp(9f).toInt(), 0, ui.dp(9f).toInt())
                     if (on) background = GradientDrawable().apply { cornerRadius = ui.dp(20f); setColor(0xFF2B2F36.toInt()) }
@@ -243,7 +248,9 @@ class MainActivity : Activity() {
         })
         add(ui.label(13f, Palette.LABEL, bold = true).apply {
             val label = shown?.let { Settings.queueLabel(this@MainActivity, it) }.orEmpty()
-            text = getString(CoreR.string.queue_upper, shown ?: Settings.queue(this@MainActivity)) +
+            val foreign = shown?.let { Extra.region(it) }?.takeIf { it != Settings.region(this@MainActivity) }
+            text = getString(CoreR.string.queue_upper, shown?.let { Extra.queue(it) } ?: Settings.queue(this@MainActivity)) +
+                (foreign?.let { " · " + Extra.shortRegion(this@MainActivity, it).uppercase() } ?: "") +
                 if (label.isEmpty()) "" else " · " + label.uppercase()
             letterSpacing = 0.1f
         })

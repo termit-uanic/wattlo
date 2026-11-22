@@ -13,6 +13,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import app.wattlo.Extra
 import app.wattlo.Fetcher
 import app.wattlo.Notify
 import app.wattlo.Palette
@@ -218,18 +219,56 @@ class SettingsActivity : Activity() {
         ) { i -> applyDataSetting { Settings.set(this, queue = all[i]) } }
     }
 
-    /** The extra queues the main screen can switch to; only the main one goes to the watch. */
+    /** "Parents · Lviv region · Queue 1.1" (the name is only there if the user gave one). */
+    private fun describe(id: String): String {
+        val label = Settings.queueLabel(this, id)
+        val region = Extra.region(id)?.let { getString(it.nameRes) }
+        return listOfNotNull(label.takeIf { it.isNotEmpty() }, region, getString(CoreR.string.queue_name, Extra.queue(id))).joinToString(" · ")
+    }
+
+    /**
+     * The extra queues the main screen can switch to (any region, up to [Extra.MAX]; only the main one goes to the
+     * watch): what is there, a tap on a queue offers to remove it, "add" asks for a region and then for a queue.
+     */
     private fun pickExtraQueues() {
-        val main = Settings.queue(this)
-        val all = Settings.queues(this).filter { it != main }
-        val chosen = Settings.extraQueues(this)
-        SearchDialog.multi(
-            this, getString(R.string.queues_extra_title), all.map { getString(CoreR.string.queue_name, it) },
-            all.indices.filter { all[it] in chosen }.toSet()
-        ) { picked ->
-            Settings.setExtraQueues(this, picked.map { all[it] }.toSet())
-            render()
-            Refresh.now(this) // fetch the schedules of the new queues
+        val extras = Settings.extraQueues(this)
+        val items = extras.map { describe(it) } + getString(R.string.queues_extra_add)
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.queues_extra_title))
+            .setItems(items.toTypedArray()) { _, i -> if (i == extras.size) addExtraQueue() else removeExtraQueue(extras[i]) }
+            .setNegativeButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun removeExtraQueue(id: String) {
+        AlertDialog.Builder(this)
+            .setMessage(getString(R.string.queues_extra_remove, describe(id)))
+            .setPositiveButton(R.string.queues_extra_remove_button) { _, _ ->
+                Settings.setExtraQueues(this, Settings.extraQueues(this) - id)
+                render()
+                pickExtraQueues()
+            }
+            .setNegativeButton(android.R.string.cancel) { _, _ -> pickExtraQueues() }
+            .show()
+    }
+
+    private fun addExtraQueue() {
+        val extras = Settings.extraQueues(this)
+        if (extras.size >= Extra.MAX) {
+            android.widget.Toast.makeText(this, getString(R.string.queues_extra_max, Extra.MAX), android.widget.Toast.LENGTH_LONG).show()
+            return pickExtraQueues()
+        }
+        val regions = Region.sorted(this)
+        SearchDialog.single(this, getString(CoreR.string.region), regions.map { getString(it.nameRes) }, regions.indexOf(Settings.region(this))) { r ->
+            val region = regions[r]
+            val main = Extra.id(Settings.region(this), Settings.queue(this))
+            val queues = region.queues.filter { Extra.id(region, it) != main && Extra.id(region, it) !in extras }
+            SearchDialog.single(this, getString(CoreR.string.queue), queues.map { getString(CoreR.string.queue_name, it) }, -1) { q ->
+                Settings.setExtraQueues(this, extras + Extra.id(region, queues[q]))
+                render()
+                Refresh.now(this) // fetch the schedule of the new queue
+                pickExtraQueues()
+            }
         }
     }
 
@@ -254,8 +293,8 @@ class SettingsActivity : Activity() {
             for ((q, field) in fields) addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                addView(TextView(context).apply { text = q; textSize = 18f; setTypeface(typeface, android.graphics.Typeface.BOLD) },
-                    LinearLayout.LayoutParams(ui.dp(44f).toInt(), WRAP_CONTENT))
+                addView(TextView(context).apply { text = Extra.text(this@SettingsActivity, q); textSize = 16f; setTypeface(typeface, android.graphics.Typeface.BOLD) },
+                    LinearLayout.LayoutParams(ui.dp(104f).toInt(), WRAP_CONTENT))
                 addView(field, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             })
         }
@@ -455,12 +494,12 @@ class SettingsActivity : Activity() {
         queueRow.text = getString(CoreR.string.two_lines, getString(R.string.queue_main_title), Settings.queue(this))
         extraQueuesRow.text = getString(
             CoreR.string.two_lines, getString(R.string.queues_extra_title),
-            Settings.extraQueues(this).joinToString(", ").ifEmpty { getString(R.string.queues_extra_none) }
+            Settings.extraQueues(this).joinToString(", ") { Extra.text(this, it) }.ifEmpty { getString(R.string.queues_extra_none) }
         )
         queueLabelsRow.text = getString(
             CoreR.string.two_lines, getString(R.string.queue_labels_title),
             Settings.extraQueues(this).filter { Settings.queueLabel(this, it).isNotEmpty() }
-                .joinToString(", ") { "$it — " + Settings.queueLabel(this, it) }
+                .joinToString(", ") { Extra.text(this, it) + " — " + Settings.queueLabel(this, it) }
                 .ifEmpty { getString(if (Settings.extraQueues(this).isEmpty()) R.string.queue_labels_add_first else R.string.queue_labels_none) }
         )
         val maybeOff = Settings.maybeIsOff(this)

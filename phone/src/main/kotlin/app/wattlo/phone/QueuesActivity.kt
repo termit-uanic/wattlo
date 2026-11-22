@@ -11,6 +11,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import app.wattlo.Extra
 import app.wattlo.Fetcher
 import app.wattlo.Fmt
 import app.wattlo.Palette
@@ -80,7 +81,7 @@ class QueuesActivity : Activity() {
         val now = ZonedDateTime.now(Schedule.ZONE)
         val main = Settings.queue(this)
         for (q in listOf<String?>(null) + Settings.extraQueues(this)) {
-            list.addView(card(q, q ?: main, q == null, now), ui.lp(if (list.childCount == 0) 0f else 10f))
+            list.addView(card(q, q?.let { Extra.queue(it) } ?: main, q == null, now), ui.lp(if (list.childCount == 0) 0f else 10f))
         }
     }
 
@@ -109,7 +110,13 @@ class QueuesActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 addView(ui.label(26f, Palette.WHITE, bold = true).apply { text = name })
                 // the main queue says so; an extra one shows the name the user gave it
-                val tag = if (isMain) getString(R.string.queue_main_tag) else extra?.let { Settings.queueLabel(this@QueuesActivity, it) }.orEmpty()
+                // the main queue says so; an extra one the region (if it is not the main one's) and the name the user gave it
+                val tag = if (isMain) getString(R.string.queue_main_tag) else extra?.let { id ->
+                    listOfNotNull(
+                        Extra.region(id)?.takeIf { it != Settings.region(this@QueuesActivity) }?.let { Extra.shortRegion(this@QueuesActivity, it) },
+                        Settings.queueLabel(this@QueuesActivity, id).takeIf { it.isNotEmpty() },
+                    ).joinToString(" · ")
+                }.orEmpty()
                 if (tag.isNotEmpty()) addView(ui.label(11f, Palette.LABEL).apply {
                     text = tag
                     maxLines = 1
