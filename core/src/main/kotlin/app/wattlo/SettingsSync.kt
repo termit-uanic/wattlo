@@ -113,7 +113,10 @@ object SettingsSync {
         val dataChanged = Settings.applySynced(app, v, m.getLong("ts")) ?: return
         Log.i(TAG, "applied queue=${v.queue} ts=${m.getLong("ts")} (source/queue changed: $dataChanged)")
         Fetcher.notifyAll(app) // redraw the surfaces, re-plan the reminders
-        if (dataChanged) Refresh.now(app) // the cache was cleared: fetch the schedule of the new queue
+        if (dataChanged) {
+            ScheduleSync.pull(app) // the phone may have sent the schedule of the new queue already
+            Refresh.now(app) // the cache was cleared: fetch the schedule of the new queue
+        }
     }
 }
 
@@ -121,8 +124,10 @@ object SettingsSync {
 class SettingsSyncService : WearableListenerService() {
     override fun onDataChanged(events: DataEventBuffer) {
         for (e in events) {
-            if (e.type == DataEvent.TYPE_CHANGED && e.dataItem.uri.path == SettingsSync.PATH) {
-                SettingsSync.handle(applicationContext, DataMapItem.fromDataItem(e.dataItem).dataMap)
+            if (e.type != DataEvent.TYPE_CHANGED) continue
+            when (e.dataItem.uri.path) {
+                SettingsSync.PATH -> SettingsSync.handle(applicationContext, DataMapItem.fromDataItem(e.dataItem).dataMap)
+                ScheduleSync.PATH -> ScheduleSync.handle(applicationContext, DataMapItem.fromDataItem(e.dataItem).dataMap)
             }
         }
     }

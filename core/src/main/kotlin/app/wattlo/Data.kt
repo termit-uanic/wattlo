@@ -478,9 +478,22 @@ object Store {
         val today = LocalDate.now(Schedule.ZONE)
         val merged = merge(raw(c, q), fresh, today, missing)
         val s = merged.entries.joinToString(";") { (d, f) -> "$d=" + f.joinToString("") }
+        // fetched here, not by the phone: see fromPhone
         p(c, q).edit().putString("days", s).putLong("fetched", System.currentTimeMillis())
-            .remove("error").apply()
+            .remove("error").remove("fromPhone").apply()
     }
+
+    /** The cache as it is stored ("2026-11-08=0000111...;2026-11-09=..."), empty if there is none. */
+    fun daysString(c: Context, q: String? = null): String = p(c, q).getString("days", null) ?: ""
+
+    /** Watch: the whole cache from the phone (see [ScheduleSync]), as it was fetched at [fetchedAt]. */
+    fun replaceFromPhone(c: Context, days: String, fetchedAt: Long) {
+        p(c, null).edit().putString("days", days).putLong("fetched", fetchedAt).remove("error")
+            .putBoolean("fromPhone", true).apply()
+    }
+
+    /** The cache came from the phone and has not been replaced by the watch's own fetch since. */
+    fun fromPhone(c: Context): Boolean = p(c, null).getBoolean("fromPhone", false)
 
     /** The last parsed cache string and its result: the tile, the complication and the app read it all the time. */
     private val parsed = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Map<LocalDate, IntArray>>>()
@@ -584,12 +597,28 @@ object Fetcher {
         val before = Store.raw(c, extra)
         Store.save(c, days, missing, extra)
         if (tomorrow in asked) Store.markTomorrowChecked(c, now, extra)
+        if (extra == null) ScheduleSync.push(c) // the watch gets the news at once (no-op on the watch itself)
         // reminders and the surfaces follow the main queue only
         if (extra == null) Notify.onScheduleSaved(c, before, Store.raw(c))
         return true
     }
 
     private const val TOMORROW_RECHECK_MS = 60 * 60_000L
+
+    /**
+     * Watch: the phone sent its schedule of the main queue. Saved and followed up as after an own fetch: the
+     * reminders and the surfaces are told if the schedule changed, or only the time on the tile.
+     */
+    fun acceptFromPhone(c: Context, days: String, fetchedAt: Long) {
+        val before = Store.snapshot(c)
+        val fetchedBefore = Store.fetchedAt(c)
+        val rawBefore = Store.raw(c)
+        Store.replaceFromPhone(c, days, fetchedAt)
+        Notify.onScheduleSaved(c, rawBefore, Store.raw(c))
+        if (Store.snapshot(c) != before) notifyAll(c)
+        else if (Store.fetchedAt(c) != fetchedBefore) Surfaces.fetched(c)
+        Notify.schedule(c)
+    }
 
     /**
      * The chosen source first; if it fails or has nothing for the queue (the volunteers' JSON files may be out of
@@ -644,6 +673,8 @@ object Fetcher {
 
 class RefreshWorker(c: Context, p: WorkerParameters) : CoroutineWorker(c, p) {
     override suspend fun doWork(): Result {
+        // the watch: the phone has delivered the schedule not long ago, nothing to ask the internet for
+        if (ScheduleSync.phoneDataIsFresh(applicationContext)) return Result.success()
         val ok = withContext(Dispatchers.IO) { Fetcher.refreshAndNotify(applicationContext) }
         return if (ok || runAttemptCount >= 2) Result.success() else Result.retry()
     }
@@ -731,6 +762,7 @@ object Refresh {
      */
     fun ifOlder(c: Context, maxAgeMs: Long) {
         ensure(c)
+        ScheduleSync.pull(c) // (watch only) what the phone sent while this app was not running
         val t = System.currentTimeMillis()
         if (t - Store.fetchedAt(c) > maxAgeMs && t - attempts(c).getLong("attempt", 0L) >= MIN_GAP_MS) now(c)
     }

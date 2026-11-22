@@ -16,5 +16,6 @@ class WearApp : Application() {
         Surfaces.openApp = { c -> Intent(c, MainActivity::class.java) }
         Settings.publishOnce(this) // tell the phone how the watch looks, once
         SettingsSync.pull(this)
+        ScheduleSync.pull(this)
     }
 }
