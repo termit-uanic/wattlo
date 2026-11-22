@@ -101,7 +101,7 @@ enum class Region(
     /** The name of the region's file in the repositories of the JSON sources. */
     val dataFile: String? = null,
 ) {
-    POLTAVA("poltavska-oblast", R.string.region_poltava, TWELVE, listOf(Source.POE, Source.WATTLO, Source.BEZSVITLA)),
+    POLTAVA("poltavska-oblast", R.string.region_poltava, TWELVE, listOf(Source.WATTLO, Source.POE, Source.BEZSVITLA)),
     KHARKIV("kharkivska-oblast", R.string.region_kharkiv, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Kharkivoblenerho.json"),
     DNIPRO("dnipropetrovska-oblast", R.string.region_dnipro, TWELVE, listOf(Source.WATTLO, Source.YASNO, Source.DTEK_DATA, Source.BEZSVITLA), yasno = 3 to 301, dataFile = "dnipro.json"),
     ODESA("odeska-oblast", R.string.region_odesa, TWELVE, listOf(Source.WATTLO, Source.DTEK_DATA, Source.BEZSVITLA), dataFile = "odesa.json"),

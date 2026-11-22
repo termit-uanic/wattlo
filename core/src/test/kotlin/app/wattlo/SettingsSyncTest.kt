@@ -11,7 +11,7 @@ class SettingsSyncTest {
 
     @Test fun sanitized_fallsBackOnUnknownSourceAndQueue() {
         val s = ok.copy(source = "nope", queue = "9.9").sanitized()
-        assertEquals(Source.POE.name, s.source)
+        assertEquals(Region.POLTAVA.sources.first().name, s.source) // an unknown source: the first of the region
         assertEquals(Settings.DEFAULT_QUEUE, s.queue)
     }
 
@@ -50,7 +50,7 @@ class SettingsSyncTest {
         assertEquals(Region.KHARKIV.sources.first().name, ok.copy(region = Region.KHARKIV.name, source = Source.POE.name).sanitized().source)
         assertEquals(Source.POE.name, ok.copy(source = Source.POE.name).sanitized().source)
         // a source that is gone (energy-ua.info) falls back to the region's own
-        assertEquals(Source.POE.name, ok.copy(source = "ENERGY_UA").sanitized().source)
+        assertEquals(Region.POLTAVA.sources.first().name, ok.copy(source = "ENERGY_UA").sanitized().source)
     }
 
     @Test fun regions_haveQueuesAndSources() {
