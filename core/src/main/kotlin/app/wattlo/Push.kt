@@ -19,6 +19,7 @@ object Push {
     fun topic(region: Region, queue: String) = "${region.slug}_$queue"
 
     fun wanted(c: Context): Set<String> {
+        if (!Settings.pushEnabled(c)) return emptySet() // switched off: unsubscribes from everything
         val main = topic(Settings.region(c), Settings.queue(c))
         val extra = Settings.extraQueues(c).mapNotNull { id -> Extra.region(id)?.let { topic(it, Extra.queue(id)) } }
         return (listOf(main) + extra).toSet()

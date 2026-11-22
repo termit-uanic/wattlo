@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Rebuilds the third-party notices from the real dependencies of the two apps.
 
-It asks Gradle for the release runtime classpath of :app and :phone, reads the licence each library declares in its
+It asks Gradle for the release runtime classpath of :wear and :phone, reads the licence each library declares in its
 POM, groups the libraries into families and writes
   - THIRD_PARTY_NOTICES.md                       (for the repository)
   - phone/src/main/assets/licenses.txt           (shown by the phone app: Settings -> Open-source licenses)
@@ -43,7 +43,7 @@ ICONS = ('Material Icons (Google)', 'Copyright Google LLC', 'Apache-2.0',
 def classpath():
     """The libraries that end up in the apps: the release runtime classpath of each module, nothing of the build tools."""
     found = {}
-    for module in (':app', ':phone'):
+    for module in (':wear', ':phone'):
         out = subprocess.run([os.path.join(ROOT, 'gradlew'), f'{module}:dependencies', '--configuration',
                               'releaseRuntimeClasspath', '-q'], cwd=ROOT, capture_output=True, text=True).stdout
         inside = False

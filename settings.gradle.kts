@@ -17,6 +17,6 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "wattlo"
-include(":app")
+include(":wear")
 include(":core")
 include(":phone")

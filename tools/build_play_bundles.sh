@@ -25,13 +25,13 @@ export WATTLO_UPLOAD_KEY_ALIAS="$ALIAS"
 export WATTLO_UPLOAD_STORE_PASSWORD="$STORE_PASSWORD"
 export WATTLO_UPLOAD_KEY_PASSWORD="$KEY_PASSWORD"
 
-./gradlew :phone:bundleRelease :app:bundleRelease -PbuildNo="$BUILD_NO"
+./gradlew :phone:bundleRelease :wear:bundleRelease -PbuildNo="$BUILD_NO"
 
 VERSION="$(grep '^appVersion=' gradle.properties | cut -d= -f2)$(grep '^versionSuffix=' gradle.properties | cut -d= -f2)"
 OUT="$HOME/wattlo-play"
 mkdir -p "$OUT"
 cp phone/build/outputs/bundle/release/phone-release.aab "$OUT/wattlo-phone-$VERSION-$BUILD_NO.aab"
-cp app/build/outputs/bundle/release/app-release.aab "$OUT/wattlo-watch-$VERSION-$BUILD_NO.aab"
+cp wear/build/outputs/bundle/release/wear-release.aab "$OUT/wattlo-watch-$VERSION-$BUILD_NO.aab"
 
 echo
 echo "Signed with:"

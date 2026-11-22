@@ -2,7 +2,7 @@ plugins {
     id("com.android.library")
 }
 
-// Code shared by the watch app (:app) and, later, the phone app: the schedule and its parsers, the cache,
+// Code shared by the watch app (:wear) and, later, the phone app: the schedule and its parsers, the cache,
 // the settings, the background refresh, the reminders, the day dial and the strings.
 android {
     namespace = "app.wattlo.core"

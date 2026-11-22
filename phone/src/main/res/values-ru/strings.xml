@@ -95,4 +95,5 @@
     <string name="queues_extra_remove">Удалить «%1$s»?</string>
     <string name="queues_extra_remove_button">Удалить</string>
     <string name="queues_extra_max">Можно добавить до %1$d дополнительных очередей</string>
+    <string name="push_setting">Мгновенные обновления графика (push через Google)</string>
 </resources>

@@ -1,7 +1,7 @@
 # Gradle / build
 /.gradle/
 /build/
-/app/build/
+/wear/build/
 /core/build/
 /phone/build/
 /.kotlin/

@@ -95,4 +95,5 @@
     <string name="queues_extra_remove">Видалити «%1$s»?</string>
     <string name="queues_extra_remove_button">Видалити</string>
     <string name="queues_extra_max">Можна додати до %1$d додаткових черг</string>
+    <string name="push_setting">Миттєві оновлення графіка (push через Google)</string>
 </resources>

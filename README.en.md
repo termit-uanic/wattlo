@@ -99,7 +99,7 @@ You need the [Android SDK Platform-Tools](https://developer.android.com/tools/re
    After `Successfully paired` the watch usually connects by itself. Check with `adb devices`. If it is not listed, connect to the address on the main screen of *Wireless debugging* (the port differs from the pairing one): `adb connect 192.168.x.x:PORT`.
 5. Install:
    ```bash
-   adb install -r app/build/outputs/apk/release/app-release.apk
+   adb install -r wear/build/outputs/apk/release/wear-release.apk
    ```
    If several devices are connected, add `-s <address from adb devices>`.
 
@@ -122,10 +122,10 @@ adb install -r phone/build/outputs/apk/release/phone-release.apk
 
 Android SDK 35 (platform `android-35`). Gradle runs on JDK 21: the version is recorded in `gradle/gradle-daemon-jvm.properties` and Gradle downloads it itself on the first build:
 ```bash
-./gradlew :app:assembleRelease :phone:assembleRelease
-# → app/build/outputs/apk/release/app-release.apk     (watch)
+./gradlew :wear:assembleRelease :phone:assembleRelease
+# → wear/build/outputs/apk/release/wear-release.apk     (watch)
 # → phone/build/outputs/apk/release/phone-release.apk (phone)
-./gradlew :core:testDebugUnitTest :app:testDebugUnitTest :phone:testDebugUnitTest
+./gradlew :core:testDebugUnitTest :wear:testDebugUnitTest :phone:testDebugUnitTest
 ```
 The release build goes through R8 and is signed with this computer's debug key. An APK built on another machine or in CI has a different signature and cannot be installed over an existing one: run `adb uninstall app.wattlo` first.
 

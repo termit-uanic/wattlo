@@ -57,6 +57,7 @@ class SettingsActivity : Activity() {
     private lateinit var notifyOnRow: TextView
     private lateinit var notifyToday: SwitchRow
     private lateinit var notifyTomorrow: SwitchRow
+    private lateinit var pushRow: SwitchRow
     private lateinit var quietRow: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,6 +111,10 @@ class SettingsActivity : Activity() {
             if (on) askNotificationPermission()
             render()
         }
+        pushRow = ui.switchRow(R.drawable.ic_bell) {
+            Settings.setPushEnabled(this, !Settings.pushEnabled(this))
+            render()
+        }
         quietRow = ui.groupRow(R.drawable.ic_clock) { pickQuiet() }
 
         val pad = ui.dp(16f).toInt()
@@ -131,7 +136,7 @@ class SettingsActivity : Activity() {
             addView(watchGroup, ui.lp())
 
             addView(ui.section(getString(CoreR.string.notifications)))
-            addView(ui.group(notifyOffRow, notifyOnRow, notifyToday.card, notifyTomorrow.card, quietRow), ui.lp())
+            addView(ui.group(notifyOffRow, notifyOnRow, notifyToday.card, notifyTomorrow.card, pushRow.card, quietRow), ui.lp())
 
             addView(ui.section(getString(R.string.background_title)))
             addView(ui.label(13f, Palette.LABEL).apply {
@@ -547,6 +552,9 @@ class SettingsActivity : Activity() {
             row.label.setTextColor(if (warn) Palette.AMBER else Palette.GREY)
             row.sw.isChecked = on
         }
+        pushRow.label.text = getString(R.string.push_setting)
+        pushRow.label.setTextColor(Palette.GREY)
+        pushRow.sw.isChecked = Settings.pushEnabled(this)
         quietRow.text = getString(
             CoreR.string.two_lines, getString(CoreR.string.quiet_hours),
             if (!QuietHours.enabled(Settings.quietFrom(this), Settings.quietTo(this))) getString(CoreR.string.quiet_off)

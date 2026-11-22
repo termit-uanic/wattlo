@@ -347,6 +347,10 @@ object Settings {
     fun notifyTomorrowNew(c: Context): Boolean = p(c).getBoolean("notifyTomorrowNew", false)
     fun setNotifyTomorrowNew(c: Context, v: Boolean) { p(c).edit().putBoolean("notifyTomorrowNew", v).apply(); touch(c) }
 
+    /** Push messages about changed schedules: on by default; shared with the other device. */
+    fun pushEnabled(c: Context): Boolean = p(c).getBoolean("push", true)
+    fun setPushEnabled(c: Context, v: Boolean) { p(c).edit().putBoolean("push", v).apply(); touch(c) }
+
     /** Changing the source/queue clears the cache: the old schedule no longer applies. */
     fun set(c: Context, source: Source = source(c), queue: String = queue(c)) {
         val r = region(c)
@@ -425,6 +429,8 @@ object Settings {
         val wearAppRings: Int = 1, val wearAppInnerLabels: Boolean = true,
         // a device without a region (an older build) is in the Poltava region
         val region: String = Region.POLTAVA.name,
+        // push messages about changed schedules (Google Firebase Cloud Messaging), see Push
+        val push: Boolean = true,
     ) {
         /** Values from the other device are not trusted blindly: anything out of range falls back to the defaults. */
         fun sanitized(): Synced {
@@ -449,7 +455,7 @@ object Settings {
     fun synced(c: Context) = Synced(
         source(c).name, queue(c), maybeIsOff(c), notifyOff(c), notifyOn(c), quietFrom(c), quietTo(c),
         notifyTodayChanged(c), notifyTomorrowNew(c),
-        tileRings(c), tileInnerLabels(c), tileShowNext(c), wearAppRings(c), wearAppInnerLabels(c), region(c).name,
+        tileRings(c), tileInnerLabels(c), tileShowNext(c), wearAppRings(c), wearAppInnerLabels(c), region(c).name, pushEnabled(c),
     )
 
     /** When the shared settings were last changed on any device (ms since epoch; 0 = never). */
@@ -480,7 +486,9 @@ object Settings {
             .putBoolean("tileShowNext", v.tileShowNext)
             .putInt(if (isWatch) "appRings" else "wearAppRings", v.wearAppRings)
             .putBoolean(if (isWatch) "appInnerLabels" else "wearAppInnerLabels", v.wearAppInnerLabels)
+            .putBoolean("push", v.push)
             .putLong("syncTs", ts).apply()
+        Push.sync(c)
         val dataChanged = before != Triple(region(c), source(c), queue(c))
         if (dataChanged) {
             // the old schedule no longer applies; a new main queue is no longer an extra one

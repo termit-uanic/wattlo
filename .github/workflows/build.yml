@@ -17,15 +17,15 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+        run: ./gradlew --no-daemon :wear:testDebugUnitTest
       - name: Assemble release APK
-        run: ./gradlew --no-daemon :app:assembleRelease
+        run: ./gradlew --no-daemon :wear:assembleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: wattlo-release
-          path: app/build/outputs/apk/release/app-release.apk
+          path: wear/build/outputs/apk/release/wear-release.apk
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: test-report
-          path: app/build/reports/tests/
+          path: wear/build/reports/tests/

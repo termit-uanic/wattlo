@@ -95,4 +95,5 @@
     <string name="queues_extra_remove">Remove %1$s?</string>
     <string name="queues_extra_remove_button">Remove</string>
     <string name="queues_extra_max">Up to %1$d extra queues</string>
+    <string name="push_setting">Instant schedule updates (push via Google)</string>
 </resources>

@@ -2,7 +2,7 @@ plugins {
     id("com.android.application")
 }
 
-// The phone app. It shares the package name with the watch app (:app) and is signed with the same key, which the
+// The phone app. It shares the package name with the watch app (:wear) and is signed with the same key, which the
 // Wear OS Data Layer needs to pair the two apps later; the code shared by both lives in :core.
 android {
     namespace = "app.wattlo.phone"

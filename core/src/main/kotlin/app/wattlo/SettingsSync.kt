@@ -78,6 +78,7 @@ object SettingsSync {
                 it.dataMap.putBoolean("tileShowNext", v.tileShowNext)
                 it.dataMap.putInt("wearAppRings", v.wearAppRings)
                 it.dataMap.putBoolean("wearAppInnerLabels", v.wearAppInnerLabels)
+                it.dataMap.putBoolean("push", v.push)
             }.asPutDataRequest().setUrgent()
             Wearable.getDataClient(c.applicationContext).putDataItem(req)
                 .addOnFailureListener { Log.w(TAG, "push failed: $it") }
@@ -109,6 +110,7 @@ object SettingsSync {
             m.getInt("tileRings", 1), m.getBoolean("tileInnerLabels", true), m.getBoolean("tileShowNext", true),
             m.getInt("wearAppRings", 1), m.getBoolean("wearAppInnerLabels", true),
             m.getString("region", Region.POLTAVA.name), // an older device sends none
+            m.getBoolean("push", true),
         )
         val dataChanged = Settings.applySynced(app, v, m.getLong("ts")) ?: return
         Log.i(TAG, "applied queue=${v.queue} ts=${m.getLong("ts")} (source/queue changed: $dataChanged)")

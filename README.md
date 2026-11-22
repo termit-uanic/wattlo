@@ -99,7 +99,7 @@
    Після `Successfully paired` годинник зазвичай підключається сам. Перевірити: `adb devices`. Якщо його там немає — підключитись за адресою з головного екрана *Бездротового налагодження* (порт інший, ніж для пари): `adb connect 192.168.x.x:ПОРТ`.
 5. Встановити:
    ```bash
-   adb install -r app/build/outputs/apk/release/app-release.apk
+   adb install -r wear/build/outputs/apk/release/wear-release.apk
    ```
    Якщо підключено кілька пристроїв — додати `-s <адреса з adb devices>`.
 
@@ -122,10 +122,10 @@ adb install -r phone/build/outputs/apk/release/phone-release.apk
 
 Android SDK 35 (platform `android-35`). Gradle запускається на JDK 21: версія записана в `gradle/gradle-daemon-jvm.properties`, і Gradle сам завантажує її при першій збірці:
 ```bash
-./gradlew :app:assembleRelease :phone:assembleRelease
-# → app/build/outputs/apk/release/app-release.apk     (годинник)
+./gradlew :wear:assembleRelease :phone:assembleRelease
+# → wear/build/outputs/apk/release/wear-release.apk     (годинник)
 # → phone/build/outputs/apk/release/phone-release.apk (телефон)
-./gradlew :core:testDebugUnitTest :app:testDebugUnitTest :phone:testDebugUnitTest
+./gradlew :core:testDebugUnitTest :wear:testDebugUnitTest :phone:testDebugUnitTest
 ```
 Release-збірка проходить через R8 і підписана debug-ключем цього комп'ютера. APK, зібраний на іншій машині чи в CI, має інший підпис, тож поверх уже встановленого він не стане: спершу `adb uninstall app.wattlo`.
 
