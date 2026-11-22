@@ -19,6 +19,8 @@ FAMILIES = [
     ('org.jetbrains', 'Kotlin and kotlinx.coroutines', 'Copyright JetBrains s.r.o. and Kotlin Programming Language contributors', 'Apache-2.0'),
     ('com.google.guava:', 'Guava', 'Copyright The Guava Authors', 'Apache-2.0'),
     ('com.google.android.gms:', 'Google Play services (Wearable, Base, Basement, Tasks)', 'Copyright Google LLC', 'Android-SDK-License'),
+    ('com.google.firebase:', 'Firebase Cloud Messaging (push about changed schedules)', 'Copyright Google LLC', 'Android-SDK-License'),
+    ('com.google.android.datatransport:', 'Google Data Transport (used by Firebase)', 'Copyright Google LLC', 'Apache-2.0'),
     ('org.checkerframework:', 'Checker Framework annotations', 'Copyright 2004-present by the Checker Framework developers', 'MIT'),
     ('com.google.code.findbugs:', 'JSR 305 annotations', 'Copyright the JSR 305 authors', 'Apache-2.0'),
     ('com.google.errorprone:', 'Error Prone annotations', 'Copyright The Error Prone Authors', 'Apache-2.0'),

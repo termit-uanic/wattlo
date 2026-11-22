@@ -53,3 +53,7 @@ dependencies {
     // the proto types of ProtoLayout, to measure the size of the tile layouts in a unit test
     testImplementation("androidx.wear.protolayout:protolayout-proto:1.2.1")
 }
+
+// Push messages need the Firebase settings file, which is not in the repository (see .gitignore); without it the app
+// builds and works, it just has no push and polls the schedules as before.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")

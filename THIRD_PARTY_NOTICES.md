@@ -16,9 +16,11 @@ The schedules come from the website of the Poltava power company, [poe.pl.ua](ht
 |---|---|---|
 | Protocol Buffers (bundled in AndroidX ProtoLayout) (1) | BSD 3-Clause License | Copyright Google Inc. |
 | AndroidX (Jetpack) (60) | Apache License 2.0 | Copyright (C) The Android Open Source Project |
-| Kotlin and kotlinx.coroutines (9) | Apache License 2.0 | Copyright JetBrains s.r.o. and Kotlin Programming Language contributors |
+| Kotlin and kotlinx.coroutines (10) | Apache License 2.0 | Copyright JetBrains s.r.o. and Kotlin Programming Language contributors |
 | Guava (3) | Apache License 2.0 | Copyright The Guava Authors |
-| Google Play services (Wearable, Base, Basement, Tasks) (4) | Android Software Development Kit License | Copyright Google LLC |
+| Google Play services (Wearable, Base, Basement, Tasks) (6) | Android Software Development Kit License | Copyright Google LLC |
+| Firebase Cloud Messaging (push about changed schedules) (14) | Android Software Development Kit License | Copyright Google LLC |
+| Google Data Transport (used by Firebase) (3) | Apache License 2.0 | Copyright Google LLC |
 | Checker Framework annotations (1) | MIT License | Copyright 2004-present by the Checker Framework developers |
 | JSR 305 annotations (1) | Apache License 2.0 | Copyright the JSR 305 authors |
 | Error Prone annotations (1) | Apache License 2.0 | Copyright The Error Prone Authors |

@@ -50,3 +50,7 @@ dependencies {
     implementation("androidx.wear:wear-remote-interactions:1.1.0")
     testImplementation("junit:junit:4.13.2")
 }
+
+// Push messages need the Firebase settings file, which is not in the repository (see .gitignore); without it the app
+// builds and works, it just has no push and polls the schedules as before.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")

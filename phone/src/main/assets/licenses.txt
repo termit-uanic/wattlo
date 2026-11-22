@@ -30,6 +30,10 @@ Libraries
   Copyright The Guava Authors
 * Google Play services (Wearable, Base, Basement, Tasks): Android Software Development Kit License
   Copyright Google LLC
+* Firebase Cloud Messaging (push about changed schedules): Android Software Development Kit License
+  Copyright Google LLC
+* Google Data Transport (used by Firebase): Apache License 2.0
+  Copyright Google LLC
 * Checker Framework annotations: MIT License
   Copyright 2004-present by the Checker Framework developers
 * JSR 305 annotations: Apache License 2.0

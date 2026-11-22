@@ -393,6 +393,7 @@ object Settings {
         val main = Extra.id(region(c), queue(c))
         val new = list.filter { Extra.isValid(it) && it != main }.distinct().take(Extra.MAX)
         writeExtras(c, new)
+        Push.sync(c)
         (old - new.toSet()).forEach { Store.clear(c, it) } // no cache for a queue that is no longer shown
     }
 
@@ -458,6 +459,7 @@ object Settings {
     private fun touch(c: Context) {
         p(c).edit().putLong("syncTs", System.currentTimeMillis()).apply()
         SettingsSync.push(c)
+        Push.sync(c)
     }
 
     /**
@@ -489,6 +491,7 @@ object Settings {
                 if (before.second != source(c)) Store.clearAll(c) else { Store.clear(c); Store.clear(c, Extra.id(region(c), queue(c))) }
             }
             writeExtras(c, extraQueues(c)) // without the one that is the main queue now
+            Push.sync(c)
         }
         return dataChanged
     }
@@ -712,8 +715,10 @@ object Fetcher {
 
 class RefreshWorker(c: Context, p: WorkerParameters) : CoroutineWorker(c, p) {
     override suspend fun doWork(): Result {
-        // the watch: the phone has delivered the schedule not long ago, nothing to ask the internet for
-        if (ScheduleSync.phoneDataIsFresh(applicationContext)) {
+        Push.sync(applicationContext) // heals the subscriptions (a failed one, a new install)
+        // the watch: the phone has delivered the schedule not long ago, nothing to ask the internet for;
+        // a push says the schedule has just changed, so the phone's older copy does not count then
+        if (!inputData.getBoolean("push", false) && ScheduleSync.phoneDataIsFresh(applicationContext)) {
             android.util.Log.i("RefreshWorker", "skipped: the phone delivered the schedule not long ago")
             return Result.success()
         }
@@ -782,6 +787,7 @@ object Refresh {
             )
             ensured = true
         }
+        Push.sync(c)
     }
 
     @Volatile private var ensured = false
@@ -794,6 +800,15 @@ object Refresh {
             "once", ExistingWorkPolicy.KEEP,
             OneTimeWorkRequestBuilder<RefreshWorker>().setConstraints(net)
                 .setInitialDelay(delaySec, TimeUnit.SECONDS).build()
+        )
+    }
+
+    /** A push said that a schedule changed: refresh now, whatever the phone has delivered, and replace a running one. */
+    fun onPush(c: Context) {
+        WorkManager.getInstance(c).enqueueUniqueWork(
+            "push", ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<RefreshWorker>().setConstraints(net)
+                .setInputData(androidx.work.workDataOf("push" to true)).build()
         )
     }
 
