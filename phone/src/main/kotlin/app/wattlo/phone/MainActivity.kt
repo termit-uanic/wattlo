@@ -156,6 +156,7 @@ class MainActivity : Activity() {
         super.onResume()
         shownSlot = "" // the data may have changed while the screen was off: rebuild everything once
         handler.post(tick)
+        Refresh.ifOlder(this, 5 * 60_000L) // opening the app is a look at the data: do not show what is 20 minutes old
     }
 
     override fun onPause() {

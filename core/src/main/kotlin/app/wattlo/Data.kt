@@ -562,6 +562,7 @@ object Fetcher {
 
     /** [extra] = null: the main queue; otherwise one of the extra queues, which only fills its own cache. */
     private fun fetch(c: Context, extra: String?): Boolean {
+        if (extra == null) Refresh.noteAttempt(c)
         val region = Settings.region(c)
         val source = Settings.source(c)
         val queue = extra ?: Settings.queue(c)
@@ -653,17 +654,32 @@ object Refresh {
     /** The background job also waits for a battery that is not low: refreshes can wait, the watch cannot. */
     private val netBatteryOk = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build()
-    /**
-     * The tile, the complication and the app trigger an extra refresh when the data is older than this.
-     * It is longer than the periodic job interval (30 min + flex), so that they only step in if that job
-     * is stuck, and do not add their own network wake-ups on top of it.
-     */
-    private const val STALE_MS = 45 * 60_000L
 
     /**
-     * Periodic refresh every 30 min. The countdown is computed by the watch itself, so the data only has to be
-     * fresh enough to notice a changed schedule; the 10 min flex window lets the system batch the wake-up
-     * with other network jobs.
+     * How often the periodic job runs (and how far the system may shift it to batch it with other network jobs).
+     * The watch spares its battery: every 30 min. The phone can afford the shortest period Android allows, 15 min.
+     */
+    private val periodMin get() = if (Settings.isWatch) 30L else 15L
+    private val flexMin get() = if (Settings.isWatch) 10L else 5L
+
+    /**
+     * The tile, the complication, the widgets and the app trigger an extra refresh when the data is older than this.
+     * It is longer than the periodic job interval (+ flex), so that they only step in if that job is stuck, and do
+     * not add their own network wake-ups on top of it.
+     */
+    private val staleMs get() = if (Settings.isWatch) 45 * 60_000L else 25 * 60_000L
+
+    /** Nobody retries sooner than this after an attempt: a site that is down must not get a request every minute. */
+    private const val MIN_GAP_MS = 5 * 60_000L
+
+    private fun attempts(c: Context) = c.getSharedPreferences("refresh", Context.MODE_PRIVATE)
+
+    /** The fetcher notes every attempt of the main queue, successful or not (see [ifOlder]). */
+    fun noteAttempt(c: Context) { attempts(c).edit().putLong("attempt", System.currentTimeMillis()).apply() }
+
+    /**
+     * Periodic refresh, see [periodMin]. The countdown is computed on the device itself, so the data only has to
+     * be fresh enough to notice a changed schedule.
      */
     fun ensure(c: Context) {
         // the tile, the complication and the app call this on every request: do the work once per process
@@ -673,6 +689,9 @@ object Refresh {
             val wm = WorkManager.getInstance(c.applicationContext)
             wm.cancelUniqueWork("periodic") // old 30-minute job
             wm.cancelUniqueWork("periodic15") // old 15-minute job
+            // the phone used to share the watch's 30-minute job; it has its own, with the shorter period
+            val name = if (Settings.isWatch) "periodic30" else "periodicPhone15"
+            if (!Settings.isWatch) wm.cancelUniqueWork("periodic30")
             // KEEP trusts the WorkManager database and never looks at the system job, but after a reboot the
             // JobScheduler job can be gone while the database still says "enqueued" (seen on the watch: no
             // refresh job for 21 h after a reboot; neither KEEP nor UPDATE brings it back). So look at
@@ -682,9 +701,9 @@ object Refresh {
                 it.service.className == JOB_SERVICE && it.isRequireBatteryNotLow
             }
             wm.enqueueUniquePeriodicWork(
-                "periodic30",
+                name,
                 if (hasJob) ExistingPeriodicWorkPolicy.KEEP else ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
-                PeriodicWorkRequestBuilder<RefreshWorker>(30, TimeUnit.MINUTES, 10, TimeUnit.MINUTES)
+                PeriodicWorkRequestBuilder<RefreshWorker>(periodMin, TimeUnit.MINUTES, flexMin, TimeUnit.MINUTES)
                     .setConstraints(netBatteryOk).build()
             )
             ensured = true
@@ -704,8 +723,15 @@ object Refresh {
     }
 
     /** ensure() + a one-off refresh if the cache is stale. */
-    fun ifStale(c: Context) {
+    fun ifStale(c: Context) = ifOlder(c, staleMs)
+
+    /**
+     * ensure() + a one-off refresh if the data is older than [maxAgeMs] and the last attempt (even a failed one)
+     * is at least [MIN_GAP_MS] ago.
+     */
+    fun ifOlder(c: Context, maxAgeMs: Long) {
         ensure(c)
-        if (System.currentTimeMillis() - Store.fetchedAt(c) > STALE_MS) now(c)
+        val t = System.currentTimeMillis()
+        if (t - Store.fetchedAt(c) > maxAgeMs && t - attempts(c).getLong("attempt", 0L) >= MIN_GAP_MS) now(c)
     }
 }
