@@ -24,7 +24,8 @@ FAMILIES = [
     ('com.google.errorprone:', 'Error Prone annotations', 'Copyright The Error Prone Authors', 'Apache-2.0'),
     ('com.google.j2objc:', 'J2ObjC annotations', 'Copyright Google Inc.', 'Apache-2.0'),
 ]
-SCHEDULES = ('The schedules come from the website of the Poltava power company, https://www.poe.pl.ua; from the public '
+SCHEDULES = ('The schedules come from the website of the Poltava power company, https://www.poe.pl.ua; from the data '
+             'service of the project, https://wattlo.poltorak.family, which collects them from the sources below; from the public '
              'data of https://yasno.ua (Kyiv, Dnipro); from open JSON files on GitHub that volunteers collect from the sites '
              'of the power companies: https://github.com/Baskerville42/outage-data-ua, '
              'https://github.com/yaroslav2901/OE_OUTAGE_DATA and https://github.com/vn-progr/gpv-voe-vinnytsia; and from '
@@ -139,6 +140,7 @@ def main():
           '[sudoRM-rSLASH/Watch4Classic-Svitlo](https://github.com/sudoRM-rSLASH/Watch4Classic-Svitlo). That code is used '
           'under the MIT License; its copyright notice is kept in [LICENSE](LICENSE).\n', '## Schedules\n',
           'The schedules come from the website of the Poltava power company, [poe.pl.ua](https://www.poe.pl.ua); from the '
+          'data service of the project, [wattlo.poltorak.family](https://wattlo.poltorak.family), which collects them from the sources below; from the '
           'public data of [yasno.ua](https://yasno.ua) (Kyiv, Dnipro); from open JSON files on GitHub that volunteers '
           'collect from the sites of the power companies: [outage-data-ua](https://github.com/Baskerville42/outage-data-ua), '
           '[OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA) and '

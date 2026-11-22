@@ -18,6 +18,32 @@ object JsonSources {
      */
     val MAX_AGE: Duration = Duration.ofHours(48)
 
+    /** A file of the data service is trusted this long after the collector last looked ("checkedAt" in the file). */
+    val WATTLO_MAX_AGE: Duration = Duration.ofMinutes(30)
+
+    /**
+     * A region's file from the data service (wattlo.poltorak.family/v1/regions/<region>.json):
+     * `{"checkedAt": "2026-11-22T18:56:40Z", "days": {"2026-11-22": {"1.1": "000011...", ...}}}`: a day (the date in Kyiv)
+     * has a queue as 48 characters, one per half hour: 0 power on, 1 off, 2 may be off. The collector runs every
+     * 7 minutes; a file that was checked longer ago than [WATTLO_MAX_AGE], has no "checkedAt" or no day of today means the
+     * collector has stopped: [FetchError], and the next source of the region is asked. [source] is named in the message.
+     */
+    fun wattlo(json: String, queue: String, source: String, now: Instant = Instant.now()): Map<LocalDate, IntArray> {
+        val root = JSONObject(json)
+        val checked = runCatching { Instant.parse(root.optString("checkedAt")) }.getOrNull()
+        if (checked == null || Duration.between(checked, now) > WATTLO_MAX_AGE) throw FetchError(R.string.err_source_stale, source)
+        val days = root.optJSONObject("days") ?: return emptyMap()
+        val out = LinkedHashMap<LocalDate, IntArray>()
+        for (key in days.keys()) {
+            val date = runCatching { LocalDate.parse(key) }.getOrNull() ?: continue
+            val s = days.getJSONObject(key).optString(queue)
+            if (s.length != Schedule.SLOTS) continue // the queue is not in the file (or the day has no schedule for it)
+            out[date] = IntArray(Schedule.SLOTS) { i -> when (s[i]) { '1' -> 1; '2' -> 2; else -> 0 } }
+        }
+        if (out.isNotEmpty() && now.atZone(Schedule.ZONE).toLocalDate() !in out) throw FetchError(R.string.err_source_stale, source)
+        return out
+    }
+
     /**
      * planned-outages of one operator: `{"1.1": {"today": {"slots": [{"start": 60, "end": 300, "type": "Definite"}],
      * "date": "2026-11-21T00:00:00+02:00", "status": "ScheduleApplies"}, "tomorrow": {...}}, ...}`; start and end

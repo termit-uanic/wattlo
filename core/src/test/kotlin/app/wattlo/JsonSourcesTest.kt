@@ -85,4 +85,49 @@ class JsonSourcesTest {
         // 00:00-00:30 off, 00:30-01:00 on, 01:00-01:30 on, 01:30-02:00 off
         assertEquals(1, s[0]); assertEquals(0, s[1]); assertEquals(0, s[2]); assertEquals(1, s[3])
     }
+
+    // ---------------------------------------------------------------- the data service
+
+    /** The real file of Lviv region from wattlo.poltorak.family (12 queues, one day), see the "checkedAt" in it. */
+    private val lviv by lazy { res("wattlo_lviv.json") }
+    private fun checkedAt() = Instant.parse(org.json.JSONObject(lviv).getString("checkedAt"))
+    private fun dayOfLviv() = LocalDate.parse(org.json.JSONObject(lviv).getJSONObject("days").keys().next())
+
+    @Test fun wattlo_theDayOfAQueue() {
+        val now = checkedAt().plusSeconds(120)
+        val m = JsonSources.wattlo(lviv, "1.1", "test", now)
+        val expected = org.json.JSONObject(lviv).getJSONObject("days").getJSONObject(dayOfLviv().toString()).getString("1.1")
+        assertEquals(expected, m.getValue(dayOfLviv()).digits())
+        assertEquals(Schedule.SLOTS, m.getValue(dayOfLviv()).size)
+    }
+
+    @Test fun wattlo_everyQueueOfTheRegionIsThere() {
+        val now = checkedAt().plusSeconds(60)
+        for (q in Region.LVIV.queues) assertTrue(q, JsonSources.wattlo(lviv, q, "test", now).isNotEmpty())
+    }
+
+    @Test fun wattlo_unknownQueueIsEmpty() = assertTrue(JsonSources.wattlo(lviv, "9.9", "test", checkedAt().plusSeconds(60)).isEmpty())
+
+    @Test(expected = FetchError::class) fun wattlo_aFileThatWasNotCheckedForAWhileIsRefused() {
+        JsonSources.wattlo(lviv, "1.1", "test", checkedAt().plus(java.time.Duration.ofMinutes(31)))
+    }
+
+    @Test fun wattlo_theLimitIsAtLeastTwoCollectorCycles() =
+        assertTrue(JsonSources.WATTLO_MAX_AGE >= java.time.Duration.ofMinutes(14))
+
+    @Test(expected = FetchError::class) fun wattlo_aFileWithoutTheTimeOfTheCheckIsRefused() {
+        JsonSources.wattlo("""{"days": {"2026-11-22": {"1.1": "${"0".repeat(48)}"}}}""", "1.1", "test", Instant.parse("2026-11-22T18:00:00Z"))
+    }
+
+    @Test(expected = FetchError::class) fun wattlo_aFileWithoutTodayIsRefused() {
+        // checked a minute ago, but the only day in it is not today
+        val json = lviv.replace(checkedAt().toString(), Instant.parse("2026-12-01T10:00:00Z").toString())
+        JsonSources.wattlo(json, "1.1", "test", Instant.parse("2026-12-01T10:01:00Z"))
+    }
+
+    @Test fun wattlo_mayBeOffSlotsAreKept() {
+        val json = """{"checkedAt": "2026-11-22T18:00:00Z", "days": {"2026-11-22": {"1.1": "0120${"0".repeat(44)}"}}}"""
+        val s = JsonSources.wattlo(json, "1.1", "test", Instant.parse("2026-11-22T18:01:00Z")).getValue(LocalDate.of(2026, 11, 22))
+        assertEquals("0120", s.digits().substring(0, 4))
+    }
 }

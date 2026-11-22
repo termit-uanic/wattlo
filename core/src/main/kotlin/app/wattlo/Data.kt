@@ -25,6 +25,8 @@ import java.util.concurrent.TimeUnit
  */
 enum class Source(val host: String, val url: String) {
     POE("poe.pl.ua", "https://www.poe.pl.ua/disconnection/power-outages/"),
+    /** The data service of the project: the schedules of every region collected from the sources below (see [JsonSources.wattlo]). */
+    WATTLO("wattlo.poltorak.family", "https://wattlo.poltorak.family/"),
     BEZSVITLA("bezsvitla.com.ua", "https://bezsvitla.com.ua/"),
     /** The JSON of the YASNO web app (Kyiv, Dnipro): the schedules of the operators themselves. */
     YASNO("yasno.ua", "https://yasno.ua/"),
@@ -61,6 +63,7 @@ enum class Source(val host: String, val url: String) {
         }
         BEZSVITLA -> Schedule.parseBezsvitla(Http.request("https://bezsvitla.com.ua/${region.slug}"), today, queue)
             .mapValues { bits(it.value) }
+        WATTLO -> JsonSources.wattlo(Http.request("https://wattlo.poltorak.family/v1/regions/${region.slug}.json"), queue, host)
         YASNO -> {
             val (regionId, dsoId) = region.yasno ?: throw FetchError(R.string.err_schedule_not_found, queue)
             JsonSources.yasno(Http.request("https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/$regionId/dsos/$dsoId/planned-outages"), queue)
@@ -98,29 +101,29 @@ enum class Region(
     /** The name of the region's file in the repositories of the JSON sources. */
     val dataFile: String? = null,
 ) {
-    POLTAVA("poltavska-oblast", R.string.region_poltava, TWELVE, listOf(Source.POE, Source.BEZSVITLA)),
-    KHARKIV("kharkivska-oblast", R.string.region_kharkiv, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Kharkivoblenerho.json"),
-    DNIPRO("dnipropetrovska-oblast", R.string.region_dnipro, TWELVE, listOf(Source.YASNO, Source.DTEK_DATA, Source.BEZSVITLA), yasno = 3 to 301, dataFile = "dnipro.json"),
-    ODESA("odeska-oblast", R.string.region_odesa, TWELVE, listOf(Source.DTEK_DATA, Source.BEZSVITLA), dataFile = "odesa.json"),
-    KYIV_OBLAST("kyivska-oblast", R.string.region_kyiv_oblast, TWELVE, listOf(Source.DTEK_DATA, Source.BEZSVITLA), dataFile = "kyiv-region.json"),
-    CHERKASY("cherkaska-oblast", R.string.region_cherkasy, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Cherkasyoblenergo.json"),
-    CHERNIHIV("chernihivska-oblast", R.string.region_chernihiv, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Chernihivoblenergo.json"),
-    IVANO_FRANKIVSK("ivano-frankivska-oblast", R.string.region_ivano_frankivsk, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Prykarpattiaoblenerho.json"),
-    KHMELNYTSKYI("khmelnytska-oblast", R.string.region_khmelnytskyi, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Khmelnytskoblenerho.json"),
-    KIROVOHRAD("kirovohradska-oblast", R.string.region_kirovohrad, TWELVE, listOf(Source.BEZSVITLA)),
-    LVIV("lvivska-oblast", R.string.region_lviv, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Lvivoblenerho.json"),
-    MYKOLAIV("mykolaivska-oblast", R.string.region_mykolaiv, TWELVE, listOf(Source.BEZSVITLA)),
-    RIVNE("rivnenska-oblast", R.string.region_rivne, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Rivneoblenergo.json"),
-    SUMY("sumska-oblast", R.string.region_sumy, TWELVE, listOf(Source.BEZSVITLA)),
-    TERNOPIL("ternopilska-oblast", R.string.region_ternopil, TERNOPIL_QUEUES, listOf(Source.BEZSVITLA)),
-    VINNYTSIA("vinnytska-oblast", R.string.region_vinnytsia, TWELVE, listOf(Source.BEZSVITLA, Source.VOE_DATA), dataFile = "Vinnytsiaoblenerho.json"),
-    VOLYN("volynska-oblast", R.string.region_volyn, TWELVE, listOf(Source.BEZSVITLA)),
-    ZAKARPATTIA("zakarpatska-oblast", R.string.region_zakarpattia, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Zakarpattiaoblenerho.json"),
-    ZAPORIZHZHIA("zaporizka-oblast", R.string.region_zaporizhzhia, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Zaporizhzhiaoblenergo.json"),
-    ZHYTOMYR("zhytomyrska-oblast", R.string.region_zhytomyr, TWELVE, listOf(Source.BEZSVITLA, Source.OE_DATA), dataFile = "Zhytomyroblenergo.json"),
+    POLTAVA("poltavska-oblast", R.string.region_poltava, TWELVE, listOf(Source.POE, Source.WATTLO, Source.BEZSVITLA)),
+    KHARKIV("kharkivska-oblast", R.string.region_kharkiv, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Kharkivoblenerho.json"),
+    DNIPRO("dnipropetrovska-oblast", R.string.region_dnipro, TWELVE, listOf(Source.WATTLO, Source.YASNO, Source.DTEK_DATA, Source.BEZSVITLA), yasno = 3 to 301, dataFile = "dnipro.json"),
+    ODESA("odeska-oblast", R.string.region_odesa, TWELVE, listOf(Source.WATTLO, Source.DTEK_DATA, Source.BEZSVITLA), dataFile = "odesa.json"),
+    KYIV_OBLAST("kyivska-oblast", R.string.region_kyiv_oblast, TWELVE, listOf(Source.WATTLO, Source.DTEK_DATA, Source.BEZSVITLA), dataFile = "kyiv-region.json"),
+    CHERKASY("cherkaska-oblast", R.string.region_cherkasy, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Cherkasyoblenergo.json"),
+    CHERNIHIV("chernihivska-oblast", R.string.region_chernihiv, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Chernihivoblenergo.json"),
+    IVANO_FRANKIVSK("ivano-frankivska-oblast", R.string.region_ivano_frankivsk, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Prykarpattiaoblenerho.json"),
+    KHMELNYTSKYI("khmelnytska-oblast", R.string.region_khmelnytskyi, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Khmelnytskoblenerho.json"),
+    KIROVOHRAD("kirovohradska-oblast", R.string.region_kirovohrad, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA)),
+    LVIV("lvivska-oblast", R.string.region_lviv, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Lvivoblenerho.json"),
+    MYKOLAIV("mykolaivska-oblast", R.string.region_mykolaiv, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA)),
+    RIVNE("rivnenska-oblast", R.string.region_rivne, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Rivneoblenergo.json"),
+    SUMY("sumska-oblast", R.string.region_sumy, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA)),
+    TERNOPIL("ternopilska-oblast", R.string.region_ternopil, TERNOPIL_QUEUES, listOf(Source.WATTLO, Source.BEZSVITLA)),
+    VINNYTSIA("vinnytska-oblast", R.string.region_vinnytsia, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.VOE_DATA), dataFile = "Vinnytsiaoblenerho.json"),
+    VOLYN("volynska-oblast", R.string.region_volyn, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA)),
+    ZAKARPATTIA("zakarpatska-oblast", R.string.region_zakarpattia, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Zakarpattiaoblenerho.json"),
+    ZAPORIZHZHIA("zaporizka-oblast", R.string.region_zaporizhzhia, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Zaporizhzhiaoblenergo.json"),
+    ZHYTOMYR("zhytomyrska-oblast", R.string.region_zhytomyr, TWELVE, listOf(Source.WATTLO, Source.BEZSVITLA, Source.OE_DATA), dataFile = "Zhytomyroblenergo.json"),
     // Chernivtsi: the site calls them groups ("Група 1" .. "Група 12"), here they are queues "1" .. "12"
-    CHERNIVTSI("chernivetska-oblast", R.string.region_chernivtsi, (1..12).map { "$it" }, listOf(Source.BEZSVITLA)),
-    KYIV("kyiv", R.string.region_kyiv, (1..60).map { "$it.1" }, listOf(Source.YASNO, Source.DTEK_DATA, Source.BEZSVITLA), yasno = 25 to 902, dataFile = "kyiv.json");
+    CHERNIVTSI("chernivetska-oblast", R.string.region_chernivtsi, (1..12).map { "$it" }, listOf(Source.WATTLO, Source.BEZSVITLA)),
+    KYIV("kyiv", R.string.region_kyiv, (1..60).map { "$it.1" }, listOf(Source.WATTLO, Source.YASNO, Source.DTEK_DATA, Source.BEZSVITLA), yasno = 25 to 902, dataFile = "kyiv.json");
 
     /** The queue chosen when the region is picked: the first one of the region. */
     val defaultQueue: String get() = queues.first()
