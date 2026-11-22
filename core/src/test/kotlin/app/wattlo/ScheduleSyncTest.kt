@@ -35,6 +35,14 @@ class ScheduleSyncTest {
     @Test fun accept_theSameMomentIsFine() = assertTrue(accept(mine = 200, sent = 200))
     @Test fun accept_notEmptyOrBrokenDays() = assertFalse(accept(ok = false))
 
+    private val hour = 60 * min
+
+    @Test fun fresh_phoneDataYoungerThanTheLimit() = assertTrue(ScheduleSync.isFresh(true, true, 0, 44 * min))
+    @Test fun fresh_notAtTheLimit() = assertFalse(ScheduleSync.isFresh(true, true, 0, 45 * min))
+    @Test fun fresh_notWhenTheWatchFetchedItself() = assertFalse(ScheduleSync.isFresh(true, false, 0, min))
+    @Test fun fresh_neverOnThePhone() = assertFalse(ScheduleSync.isFresh(false, true, 0, min))
+    @Test fun fresh_oldDataGoesBackToTheInternet() = assertFalse(ScheduleSync.isFresh(true, true, 0, hour))
+
     @Test fun parseDaysOfAnEmptyOrBrokenStringIsEmpty() {
         assertEquals(0, Store.parseDays("").size)
         assertEquals(0, Store.parseDays("2026-11-22=012").size)

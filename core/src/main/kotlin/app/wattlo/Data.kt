@@ -674,7 +674,11 @@ object Fetcher {
 class RefreshWorker(c: Context, p: WorkerParameters) : CoroutineWorker(c, p) {
     override suspend fun doWork(): Result {
         // the watch: the phone has delivered the schedule not long ago, nothing to ask the internet for
-        if (ScheduleSync.phoneDataIsFresh(applicationContext)) return Result.success()
+        if (ScheduleSync.phoneDataIsFresh(applicationContext)) {
+            android.util.Log.i("RefreshWorker", "skipped: the phone delivered the schedule not long ago")
+            return Result.success()
+        }
+        android.util.Log.i("RefreshWorker", "fetching")
         val ok = withContext(Dispatchers.IO) { Fetcher.refreshAndNotify(applicationContext) }
         return if (ok || runAttemptCount >= 2) Result.success() else Result.retry()
     }
@@ -745,11 +749,12 @@ object Refresh {
 
     private const val JOB_SERVICE = "androidx.work.impl.background.systemjob.SystemJobService"
 
-    /** One-off refresh now. */
-    fun now(c: Context) {
+    /** One-off refresh now, or after [delaySec] seconds (the watch waits a little for the phone's schedule). */
+    fun now(c: Context, delaySec: Long = 0) {
         WorkManager.getInstance(c).enqueueUniqueWork(
             "once", ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<RefreshWorker>().setConstraints(net).build()
+            OneTimeWorkRequestBuilder<RefreshWorker>().setConstraints(net)
+                .setInitialDelay(delaySec, TimeUnit.SECONDS).build()
         )
     }
 

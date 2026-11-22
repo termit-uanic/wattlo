@@ -115,7 +115,10 @@ object SettingsSync {
         Fetcher.notifyAll(app) // redraw the surfaces, re-plan the reminders
         if (dataChanged) {
             ScheduleSync.pull(app) // the phone may have sent the schedule of the new queue already
-            Refresh.now(app) // the cache was cleared: fetch the schedule of the new queue
+            // The cache was cleared: the schedule of the new queue is needed. The change came from the phone, which
+            // fetches it now and sends it within seconds: give it a moment, the watch asks the internet only if
+            // nothing comes (the refresh does nothing when the phone's schedule is there by then).
+            Refresh.now(app, if (Settings.isWatch) 20 else 0)
         }
     }
 }

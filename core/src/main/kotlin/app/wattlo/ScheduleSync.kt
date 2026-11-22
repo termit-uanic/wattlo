@@ -94,5 +94,9 @@ object ScheduleSync {
 
     /** Watch: the data that came from the phone is recent, no reason to ask the internet. */
     fun phoneDataIsFresh(c: Context, now: Long = System.currentTimeMillis()): Boolean =
-        Settings.isWatch && Store.fromPhone(c) && now - Store.fetchedAt(c) < PHONE_FRESH_MS
+        isFresh(Settings.isWatch, Store.fromPhone(c), Store.fetchedAt(c), now)
+
+    /** Only the watch, only for data that came from the phone, and only while it is younger than [PHONE_FRESH_MS]. */
+    fun isFresh(isWatch: Boolean, fromPhone: Boolean, fetchedAt: Long, now: Long): Boolean =
+        isWatch && fromPhone && now - fetchedAt < PHONE_FRESH_MS
 }
