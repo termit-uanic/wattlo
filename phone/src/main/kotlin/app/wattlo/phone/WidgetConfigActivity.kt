@@ -53,7 +53,7 @@ class WidgetConfigActivity : Activity() {
         labelsSetting = Widgets.labelsSettingOf(this, id)
         // the compact status widget has no ring
         val hasRing = AppWidgetManager.getInstance(this).getAppWidgetInfo(id)?.provider?.className
-            ?.endsWith("SmallWidget") != true
+            ?.let { !it.endsWith("SmallWidget") && !it.endsWith("BarsWidget") } != false
 
         queueRow = ui.groupRow(R.drawable.ic_tab_queues) { pickQueue() }
         bgRow = ui.groupRow(R.drawable.ic_ring) { pickBackground() }

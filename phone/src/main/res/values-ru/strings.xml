@@ -95,4 +95,12 @@
     <string name="queues_extra_remove">Удалить «%1$s»?</string>
     <string name="queues_extra_remove_button">Удалить</string>
     <string name="queues_extra_max">Можно добавить до %1$d дополнительных очередей</string>
+    <string name="widget_today_label">Кольцо и завтра</string>
+    <string name="widget_bars_label">Две полосы</string>
+    <string name="widget_events_label">Кольцо и события</string>
+    <string name="widget_event_off">Свет пропадёт</string>
+    <string name="widget_event_on">Свет вернётся</string>
+    <string name="widget_in">через %1$s</string>
+    <string name="widget_tomorrow_short">завтра</string>
+    <string name="widget_upcoming">Ближайшие изменения</string>
 </resources>

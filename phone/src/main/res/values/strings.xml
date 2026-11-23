@@ -95,4 +95,12 @@
     <string name="queues_extra_remove">Remove %1$s?</string>
     <string name="queues_extra_remove_button">Remove</string>
     <string name="queues_extra_max">Up to %1$d extra queues</string>
+    <string name="widget_today_label">Ring and tomorrow</string>
+    <string name="widget_bars_label">Two bars</string>
+    <string name="widget_events_label">Ring and events</string>
+    <string name="widget_event_off">Power goes off</string>
+    <string name="widget_event_on">Power comes back</string>
+    <string name="widget_in">in %1$s</string>
+    <string name="widget_tomorrow_short">tomorrow</string>
+    <string name="widget_upcoming">Upcoming changes</string>
 </resources>

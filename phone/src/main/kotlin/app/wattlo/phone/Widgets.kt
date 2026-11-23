@@ -50,6 +50,25 @@ class LargeWidget : AppWidgetProvider() {
     override fun onDeleted(c: Context, ids: IntArray) = Widgets.forget(c, ids)
 }
 
+/** The providers of the newer 4x4 layouts share their behaviour. */
+abstract class WidgetProviderBase : AppWidgetProvider() {
+    override fun onUpdate(c: Context, m: AppWidgetManager, ids: IntArray) = Widgets.update(c, m, this::class.java, ids)
+    override fun onAppWidgetOptionsChanged(c: Context, m: AppWidgetManager, id: Int, o: Bundle) =
+        Widgets.update(c, m, this::class.java, intArrayOf(id))
+    override fun onEnabled(c: Context) = Widgets.updateAll(c)
+    override fun onDisabled(c: Context) = Widgets.updateAll(c)
+    override fun onDeleted(c: Context, ids: IntArray) = Widgets.forget(c, ids)
+}
+
+/** Ring and today's outages side by side, tomorrow as a thin strip underneath (it takes little room while it is unknown). */
+class TodayWidget : WidgetProviderBase()
+
+/** A 4x2 widget: two 24-hour bars (today, tomorrow) and the next changes (more of them when it is made taller). */
+class BarsWidget : WidgetProviderBase()
+
+/** The ring of today and the upcoming changes, across midnight. */
+class EventsWidget : WidgetProviderBase()
+
 /** The minute tick: redraws the widgets so that the countdown is always right, and plans the next tick. */
 class WidgetTickReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, intent: Intent) {
@@ -114,7 +133,10 @@ object Widgets {
         e.apply()
     }
 
-    private val providers = listOf(SmallWidget::class.java, MediumWidget::class.java, LargeWidget::class.java)
+    private val providers = listOf(
+        SmallWidget::class.java, MediumWidget::class.java, LargeWidget::class.java,
+        TodayWidget::class.java, BarsWidget::class.java, EventsWidget::class.java,
+    )
 
     /** Redraws every widget of the app; plans the next minute tick while there is one, cancels it otherwise. */
     fun updateAll(c: Context) {
@@ -142,6 +164,9 @@ object Widgets {
             val views = when (provider) {
                 SmallWidget::class.java -> small(c, snap, w, h)
                 MediumWidget::class.java -> medium(c, snap, w, ring)
+                TodayWidget::class.java -> today(c, snap, ring)
+                BarsWidget::class.java -> bars(c, snap, h)
+                EventsWidget::class.java -> events(c, snap, h, ring)
                 else -> large(c, snap, h, ring)
             }
             // the background is a layer of its own, so that its opacity can change without the text fading
@@ -293,6 +318,114 @@ object Widgets {
         // with the rings the date and the total are in the middle of them (the date says which day it is); without
         // the rings the title says it all
         for (t in listOf(R.id.titleToday, R.id.titleTomorrow)) v.setViewVisibility(t, if (rings) android.view.View.GONE else android.view.View.VISIBLE)
+        return v
+    }
+
+    // ---------------------------------------------------------------- the newer 4x4 layouts
+
+    private fun header(v: RemoteViews, s: Snapshot) {
+        v.setTextViewText(R.id.queue, s.queue)
+        v.setTextViewText(R.id.state, s.stateWord)
+        v.setTextColor(R.id.state, s.color)
+        v.setTextViewText(R.id.countdown, s.countdown)
+    }
+
+    /** "Tomorrow  −8h", "Tomorrow · no schedule yet", "Today  power all day". */
+    private fun dayTitle(c: Context, s: Snapshot, date: java.time.LocalDate, isToday: Boolean): String {
+        val flags = s.days[date]
+        val name = c.getString(if (isToday) CoreR.string.today else CoreR.string.tomorrow)
+        return when {
+            flags == null -> "$name  ·  " + c.getString(CoreR.string.no_schedule_yet)
+            flags.none { it } -> "$name  ·  " + c.getString(CoreR.string.power_all_day)
+            else -> "$name  " + c.getString(CoreR.string.minus, Fmt.duration(c, Schedule.offDuration(flags)))
+        }
+    }
+
+    private fun bar(s: Snapshot, date: java.time.LocalDate, isToday: Boolean, ticks: Boolean) = WidgetBar.render(
+        s.days[date], s.maybe[date], if (isToday) Schedule.slotOf(s.now) else -1,
+        if (isToday) s.now.hour * 60 + s.now.minute else -1, Settings.maybeIsOff(s.c), ticks
+    )
+
+    /** At most [max] outages of a day; when there are more, the ones that are over go first, then "+N". */
+    private fun outageRows(c: Context, v: RemoteViews, s: Snapshot, date: java.time.LocalDate, isToday: Boolean, list: Int, max: Int) {
+        v.removeAllViews(list)
+        val flags = s.days[date]
+        if (flags == null) {
+            v.addView(list, row(c, Palette.LABEL, c.getString(CoreR.string.no_schedule_yet), "", false))
+            return
+        }
+        val cur = if (isToday) Schedule.slotOf(s.now) else -1
+        var ranges = Schedule.offRanges(flags)
+        if (ranges.isEmpty()) v.addView(list, row(c, Palette.GREEN, c.getString(CoreR.string.power_all_day), "", false))
+        if (ranges.size > max) ranges = ranges.drop(minOf(ranges.count { cur >= 0 && it.second <= cur }, ranges.size - max))
+        val extra = ranges.size - max
+        for ((a, b) in ranges.take(max)) {
+            val past = cur >= 0 && b <= cur
+            val active = cur in a until b
+            v.addView(list, row(
+                c, if (past) Palette.RED_DIM else Palette.RED,
+                c.getString(CoreR.string.time_range, Schedule.slotTime(a), Schedule.slotTime(b)),
+                if (active) c.getString(CoreR.string.now) else Fmt.duration(c, Duration.ofMinutes((b - a) * 30L)),
+                active, past
+            ))
+        }
+        if (extra > 0) v.addView(list, row(c, Palette.LABEL, "+$extra", "", false))
+    }
+
+    /** The next changes of the state, across midnight: "16:00  Power goes off  in 1h 20m". */
+    private fun upcoming(c: Context, v: RemoteViews, s: Snapshot, list: Int, max: Int) {
+        v.removeAllViews(list)
+        val changes = Schedule.changes(s.days, s.now, max)
+        if (changes.isEmpty()) {
+            v.addView(list, row(c, Palette.LABEL, c.getString(if (s.st == null) CoreR.string.no_schedule_yet else R.string.widget_no_more_changes), "", false))
+            return
+        }
+        for ((i, t) in changes.withIndex()) {
+            val off = Schedule.at(s.days, t) == true
+            val r = RemoteViews(c.packageName, R.layout.widget_event_row)
+            r.setInt(R.id.dot, "setColorFilter", if (off) Palette.RED else Palette.GREEN)
+            val time = "%02d:%02d".format(t.hour, t.minute)
+            r.setTextViewText(R.id.time, if (t.toLocalDate() == s.today) time else c.getString(R.string.widget_tomorrow_short) + " " + time)
+            r.setTextColor(R.id.time, if (i == 0) Palette.WHITE else Palette.GREY)
+            r.setTextViewText(R.id.what, c.getString(if (off) R.string.widget_event_off else R.string.widget_event_on))
+            r.setTextViewText(R.id.left, c.getString(R.string.widget_in, Fmt.duration(c, Duration.between(s.now, t).plusSeconds(59))))
+            v.addView(list, r)
+        }
+    }
+
+    private fun today(c: Context, s: Snapshot, ring: RingConfig): RemoteViews {
+        val v = RemoteViews(c.packageName, R.layout.widget_today)
+        header(v, s)
+        val tomorrow = s.today.plusDays(1)
+        v.setImageViewBitmap(R.id.ringToday, s.ring(s.today, true, ring.rings, ring.labels, withCenter = true, withDayName = false))
+        outageRows(c, v, s, s.today, true, R.id.listToday, 3)
+        v.setTextViewText(R.id.titleTomorrow, dayTitle(c, s, tomorrow, false))
+        // no bar for a day that is not known: the strip is then one line
+        val known = s.days[tomorrow] != null
+        if (known) v.setImageViewBitmap(R.id.barTomorrow, bar(s, tomorrow, false, ticks = false))
+        v.setViewVisibility(R.id.barTomorrow, if (known) android.view.View.VISIBLE else android.view.View.GONE)
+        return v
+    }
+
+    private fun bars(c: Context, s: Snapshot, heightDp: Int): RemoteViews {
+        val v = RemoteViews(c.packageName, R.layout.widget_bars)
+        header(v, s)
+        val tomorrow = s.today.plusDays(1)
+        v.setTextViewText(R.id.titleToday, dayTitle(c, s, s.today, true))
+        v.setImageViewBitmap(R.id.barToday, bar(s, s.today, true, ticks = true))
+        v.setTextViewText(R.id.titleTomorrow, dayTitle(c, s, tomorrow, false))
+        v.setImageViewBitmap(R.id.barTomorrow, bar(s, tomorrow, false, ticks = false))
+        upcoming(c, v, s, R.id.listEvents, ((heightDp - 190) / 22).coerceIn(1, 6))
+        return v
+    }
+
+    private fun events(c: Context, s: Snapshot, heightDp: Int, ring: RingConfig): RemoteViews {
+        val v = RemoteViews(c.packageName, R.layout.widget_events)
+        header(v, s)
+        val rings = heightDp >= 230
+        if (rings) v.setImageViewBitmap(R.id.ringToday, s.ring(s.today, true, ring.rings, ring.labels, withCenter = true, withDayName = false))
+        v.setViewVisibility(R.id.ringToday, if (rings) android.view.View.VISIBLE else android.view.View.GONE)
+        upcoming(c, v, s, R.id.listEvents, ((heightDp - 90 - if (rings) 130 else 0) / 22).coerceIn(2, 6))
         return v
     }
 

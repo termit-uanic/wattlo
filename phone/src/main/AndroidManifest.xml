@@ -89,6 +89,42 @@
                 android:resource="@xml/widget_large" />
         </receiver>
 
+        <receiver
+            android:name=".TodayWidget"
+            android:exported="true"
+            android:label="@string/widget_today_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today" />
+        </receiver>
+
+        <receiver
+            android:name=".BarsWidget"
+            android:exported="true"
+            android:label="@string/widget_bars_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_bars" />
+        </receiver>
+
+        <receiver
+            android:name=".EventsWidget"
+            android:exported="true"
+            android:label="@string/widget_events_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_events" />
+        </receiver>
+
         <activity
             android:name=".WidgetConfigActivity"
             android:exported="true"
