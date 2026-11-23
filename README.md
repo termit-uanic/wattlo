@@ -13,6 +13,14 @@
   Українська · <a href="README.en.md">English</a>
 </p>
 
+<div align="center">
+
+### 🇺🇦 Слава Україні! Героям Слава! 🇺🇦
+
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner2-direct.svg)](https://stand-with-ukraine.pp.ua)
+
+</div>
+
 Застосунок складається з двох частин, які працюють разом і окремо:
 
 - **для годинника (Wear OS)** — тайл, complication для циферблата і сам застосунок; працює й без телефона;

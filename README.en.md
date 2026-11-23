@@ -13,6 +13,14 @@
   <a href="README.md">Українська</a> · English
 </p>
 
+<div align="center">
+
+### 🇺🇦 Glory to Ukraine! Glory to the heroes! 🇺🇦
+
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner2-direct.svg)](https://stand-with-ukraine.pp.ua)
+
+</div>
+
 The app has two parts that work together and on their own:
 
 - **for the watch (Wear OS)**: a tile, a watch face complication and the app itself; it works without a phone too;
