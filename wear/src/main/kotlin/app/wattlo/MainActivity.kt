@@ -187,7 +187,7 @@ class MainActivity : Activity() {
         setContentView(scroll)
         scroll.requestFocus() // rotating the bezel scrolls the screen
 
-        if (System.currentTimeMillis() - Store.fetchedAt(this) > 2 * 60_000L) refreshNow()
+        if (Refresh.shouldFetchOnOpen(this)) refreshNow()
     }
 
     override fun onResume() {

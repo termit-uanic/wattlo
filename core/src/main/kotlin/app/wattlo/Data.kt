@@ -830,7 +830,20 @@ object Refresh {
     fun ifOlder(c: Context, maxAgeMs: Long) {
         ensure(c)
         ScheduleSync.pull(c) // (watch only) what the phone sent while this app was not running
+        if (shouldFetch(System.currentTimeMillis() - Store.fetchedAt(c), System.currentTimeMillis() - attempts(c).getLong("attempt", 0L), maxAgeMs)) now(c)
+    }
+
+    /** The data is older than [maxAgeMs] and nobody tried to refresh it during the last [MIN_GAP_MS]. */
+    fun shouldFetch(ageMs: Long, sinceAttemptMs: Long, maxAgeMs: Long): Boolean = ageMs > maxAgeMs && sinceAttemptMs >= MIN_GAP_MS
+
+    /**
+     * The watch app was opened. It used to fetch whenever the data was older than 2 minutes, which ignored what the phone
+     * had just delivered; now it asks the internet only when the data is as stale as the tile would call it (and not
+     * tried a moment ago). Push and the periodic job keep the data fresh in between.
+     */
+    fun shouldFetchOnOpen(c: Context): Boolean {
+        ScheduleSync.pull(c) // what the phone sent while this app was not running
         val t = System.currentTimeMillis()
-        if (t - Store.fetchedAt(c) > maxAgeMs && t - attempts(c).getLong("attempt", 0L) >= MIN_GAP_MS) now(c)
+        return shouldFetch(t - Store.fetchedAt(c), t - attempts(c).getLong("attempt", 0L), staleMs)
     }
 }
