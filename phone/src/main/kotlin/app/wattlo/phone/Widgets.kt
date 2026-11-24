@@ -330,14 +330,23 @@ object Widgets {
         v.setTextViewText(R.id.countdown, s.countdown)
     }
 
-    /** "Tomorrow  −8h", "Tomorrow · no schedule yet", "Today  power all day". */
-    private fun dayTitle(c: Context, s: Snapshot, date: java.time.LocalDate, isToday: Boolean): String {
+    /** The name of a day, then what the day adds up to in a colour of its own (the title itself is white). */
+    private fun withSummary(name: String, sep: String, summary: String, color: Int): CharSequence =
+        android.text.SpannableString(name + sep + summary).apply {
+            setSpan(
+                android.text.style.ForegroundColorSpan(color), name.length + sep.length, length,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+    /** "Tomorrow  −8h" (the total in red), "Tomorrow · no schedule yet" (grey), "Today · power all day" (green). */
+    private fun dayTitle(c: Context, s: Snapshot, date: java.time.LocalDate, isToday: Boolean): CharSequence {
         val flags = s.days[date]
         val name = c.getString(if (isToday) CoreR.string.today else CoreR.string.tomorrow)
         return when {
-            flags == null -> "$name  ·  " + c.getString(CoreR.string.no_schedule_yet)
-            flags.none { it } -> "$name  ·  " + c.getString(CoreR.string.power_all_day)
-            else -> "$name  " + c.getString(CoreR.string.minus, Fmt.duration(c, Schedule.offDuration(flags)))
+            flags == null -> withSummary(name, "  ·  ", c.getString(CoreR.string.no_schedule_yet), Palette.LABEL)
+            flags.none { it } -> withSummary(name, "  ·  ", c.getString(CoreR.string.power_all_day), Palette.GREEN)
+            else -> withSummary(name, "  ", c.getString(CoreR.string.minus, Fmt.duration(c, Schedule.offDuration(flags))), Palette.RED)
         }
     }
 
@@ -434,7 +443,11 @@ object Widgets {
         val flags = s.days[date]
         val cur = if (isToday) Schedule.slotOf(s.now) else -1
         val name = c.getString(if (isToday) CoreR.string.today else CoreR.string.tomorrow)
-        v.setTextViewText(title, if (flags == null || flags.none { it }) name else "$name  " + c.getString(CoreR.string.minus, Fmt.duration(c, Schedule.offDuration(flags))))
+        v.setTextViewText(
+            title,
+            if (flags == null || flags.none { it }) name
+            else withSummary(name, "  ", c.getString(CoreR.string.minus, Fmt.duration(c, Schedule.offDuration(flags))), Palette.RED)
+        )
         v.removeAllViews(list)
         if (flags == null) {
             v.addView(list, row(c, Palette.LABEL, c.getString(CoreR.string.no_schedule_yet), "", false))
