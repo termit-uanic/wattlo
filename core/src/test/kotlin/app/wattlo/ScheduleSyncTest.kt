@@ -13,10 +13,10 @@ class ScheduleSyncTest {
     @Test fun push_aChangeGoesAtOnce() = assertTrue(ScheduleSync.shouldPush(sameAsLast = false, lastPushAt = 1_000, now = 2_000))
 
     @Test fun push_nothingNewIsKeptQuiet() =
-        assertFalse(ScheduleSync.shouldPush(sameAsLast = true, lastPushAt = 0, now = 29 * min))
+        assertFalse(ScheduleSync.shouldPush(sameAsLast = true, lastPushAt = 0, now = 24 * min))
 
     @Test fun push_theHeartbeatTellsTheWatchTheDataIsCurrent() =
-        assertTrue(ScheduleSync.shouldPush(sameAsLast = true, lastPushAt = 0, now = 30 * min))
+        assertTrue(ScheduleSync.shouldPush(sameAsLast = true, lastPushAt = 0, now = 25 * min))
 
     @Test fun heartbeatIsShorterThanWhatTheWatchTrusts() =
         assertTrue("one missed message must not make the watch go to the internet",
@@ -37,11 +37,11 @@ class ScheduleSyncTest {
 
     private val hour = 60 * min
 
-    @Test fun fresh_phoneDataYoungerThanTheLimit() = assertTrue(ScheduleSync.isFresh(true, true, 0, 44 * min))
-    @Test fun fresh_notAtTheLimit() = assertFalse(ScheduleSync.isFresh(true, true, 0, 45 * min))
+    @Test fun fresh_phoneDataYoungerThanTheLimit() = assertTrue(ScheduleSync.isFresh(true, true, 0, 59 * min))
+    @Test fun fresh_notAtTheLimit() = assertFalse(ScheduleSync.isFresh(true, true, 0, 60 * min))
     @Test fun fresh_notWhenTheWatchFetchedItself() = assertFalse(ScheduleSync.isFresh(true, false, 0, min))
     @Test fun fresh_neverOnThePhone() = assertFalse(ScheduleSync.isFresh(false, true, 0, min))
-    @Test fun fresh_oldDataGoesBackToTheInternet() = assertFalse(ScheduleSync.isFresh(true, true, 0, hour))
+    @Test fun fresh_oldDataGoesBackToTheInternet() = assertFalse(ScheduleSync.isFresh(true, true, 0, 2 * hour))
 
     @Test fun parseDaysOfAnEmptyOrBrokenStringIsEmpty() {
         assertEquals(0, Store.parseDays("").size)

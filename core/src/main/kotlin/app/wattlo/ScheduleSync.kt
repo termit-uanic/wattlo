@@ -10,7 +10,7 @@ import com.google.android.gms.wearable.Wearable
 
 /**
  * The phone gives the watch the schedule it has just fetched (Wear OS Data Layer, path [PATH]), so that the watch
- * does not have to go to the internet itself while the phone is around: the phone looks every 15 minutes, the watch
+ * does not have to go to the internet itself while the phone is around: the phone looks every 30 minutes (and on every push), the watch
  * gets the news as soon as the phone has it, and its own periodic refresh stays quiet ([phoneDataIsFresh]).
  *
  * Only the main queue is sent (the extra queues are on the phone only). The watch takes the item when its region
@@ -23,10 +23,10 @@ object ScheduleSync {
     private const val TAG = "ScheduleSync"
 
     /** The watch trusts what came from the phone this long; after it, it goes to the internet itself. */
-    const val PHONE_FRESH_MS = 45 * 60_000L
+    const val PHONE_FRESH_MS = 60 * 60_000L
 
     /** Even when nothing has changed the phone repeats the item this often, so the watch sees that it is current. */
-    const val HEARTBEAT_MS = 30 * 60_000L
+    const val HEARTBEAT_MS = 25 * 60_000L
 
     /** The phone sends when the schedule differs from the last one sent, or when the last message is old. */
     fun shouldPush(sameAsLast: Boolean, lastPushAt: Long, now: Long): Boolean =

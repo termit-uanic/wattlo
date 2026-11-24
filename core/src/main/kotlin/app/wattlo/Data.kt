@@ -783,17 +783,19 @@ object Refresh {
 
     /**
      * How often the periodic job runs (and how far the system may shift it to batch it with other network jobs).
-     * The watch spares its battery: every 30 min. The phone can afford the shortest period Android allows, 15 min.
+     * Both every 30 min. Changed schedules reach the phone as a push within a minute (and the watch from the phone
+     * a second later), so the job is only the safety net for a push that did not come. The watch has the same period
+     * because it is the only safety net when the phone is not around.
      */
-    private val periodMin get() = if (Settings.isWatch) 30L else 15L
-    private val flexMin get() = if (Settings.isWatch) 10L else 5L
+    private val periodMin get() = 30L
+    private val flexMin get() = 10L
 
     /**
      * The tile, the complication, the widgets and the app trigger an extra refresh when the data is older than this.
      * It is longer than the periodic job interval (+ flex), so that they only step in if that job is stuck, and do
      * not add their own network wake-ups on top of it.
      */
-    private val staleMs get() = if (Settings.isWatch) 45 * 60_000L else 25 * 60_000L
+    private val staleMs get() = if (Settings.isWatch) 45 * 60_000L else 40 * 60_000L
 
     /** Nobody retries sooner than this after an attempt: a site that is down must not get a request every minute. */
     private const val MIN_GAP_MS = 5 * 60_000L
@@ -815,9 +817,13 @@ object Refresh {
             val wm = WorkManager.getInstance(c.applicationContext)
             wm.cancelUniqueWork("periodic") // old 30-minute job
             wm.cancelUniqueWork("periodic15") // old 15-minute job
-            // the phone used to share the watch's 30-minute job; it has its own, with the shorter period
-            val name = if (Settings.isWatch) "periodic30" else "periodicPhone15"
-            if (!Settings.isWatch) wm.cancelUniqueWork("periodic30")
+            // the phone used to share the watch's 30-minute job, then had a 15-minute one of its own; now it has
+            // its own 30-minute job, which is a different work name so that the old job really goes away
+            val name = if (Settings.isWatch) "periodic30" else "periodicPhone30"
+            if (!Settings.isWatch) {
+                wm.cancelUniqueWork("periodic30")
+                wm.cancelUniqueWork("periodicPhone15")
+            }
             // KEEP trusts the WorkManager database and never looks at the system job, but after a reboot the
             // JobScheduler job can be gone while the database still says "enqueued" (seen on the watch: no
             // refresh job for 21 h after a reboot; neither KEEP nor UPDATE brings it back). So look at
