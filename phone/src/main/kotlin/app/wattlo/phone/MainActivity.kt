@@ -137,9 +137,8 @@ class MainActivity : Activity() {
             val on = q == cur
             queueBar.addView(
                 ui.label(15f, if (on) Palette.WHITE else Palette.LABEL, bold = on).apply {
-                    // an extra queue: the name the user gave it, else the queue (with its region if that is another one)
-                    text = if (q == null) Settings.queue(this@MainActivity)
-                        else Settings.queueLabel(this@MainActivity, q).ifEmpty { Extra.text(this@MainActivity, q) }
+                    // the name the user gave the queue, else the queue (an extra one with its region if that is another one)
+                    text = Settings.labelOf(this@MainActivity, q).ifEmpty { if (q == null) Settings.queue(this@MainActivity) else Extra.text(this@MainActivity, q) }
                     maxLines = 1
                     ellipsize = android.text.TextUtils.TruncateAt.END
                     gravity = Gravity.CENTER
@@ -247,7 +246,7 @@ class MainActivity : Activity() {
             topMargin = ui.dp(top).toInt()
         })
         add(ui.label(13f, Palette.LABEL, bold = true).apply {
-            val label = shown?.let { Settings.queueLabel(this@MainActivity, it) }.orEmpty()
+            val label = Settings.labelOf(this@MainActivity, shown)
             val foreign = shown?.let { Extra.region(it) }?.takeIf { it != Settings.region(this@MainActivity) }
             text = getString(CoreR.string.queue_upper, shown?.let { Extra.queue(it) } ?: Settings.queue(this@MainActivity)) +
                 (foreign?.let { " · " + Extra.shortRegion(this@MainActivity, it).uppercase() } ?: "") +

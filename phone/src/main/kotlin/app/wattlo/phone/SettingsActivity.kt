@@ -277,10 +277,10 @@ class SettingsActivity : Activity() {
         }
     }
 
-    /** Short names of the extra queues ("parents", "sister"): shown where the main queue says "main". */
+    /** Short names of the queues, the main one included ("home", "parents"): shown next to the queue on the screens and widgets. */
     private fun pickQueueLabels() {
-        val extras = Settings.extraQueues(this)
-        if (extras.isEmpty()) { pickExtraQueues(); return } // nothing to name yet
+        val mainId = Extra.id(Settings.region(this), Settings.queue(this))
+        val extras = listOf(mainId) + Settings.extraQueues(this)
         val pad = ui.dp(20f).toInt()
         val fields = extras.associateWith { q ->
             android.widget.EditText(this).apply {
@@ -298,7 +298,10 @@ class SettingsActivity : Activity() {
             for ((q, field) in fields) addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                addView(TextView(context).apply { text = Extra.text(this@SettingsActivity, q); textSize = 16f; setTypeface(typeface, android.graphics.Typeface.BOLD) },
+                addView(TextView(context).apply {
+                    text = Extra.text(this@SettingsActivity, q) + if (q == mainId) "\n" + getString(R.string.queue_main_tag) else ""
+                    textSize = 16f; setTypeface(typeface, android.graphics.Typeface.BOLD)
+                },
                     LinearLayout.LayoutParams(ui.dp(104f).toInt(), WRAP_CONTENT))
                 addView(field, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             })
@@ -503,9 +506,10 @@ class SettingsActivity : Activity() {
         )
         queueLabelsRow.text = getString(
             CoreR.string.two_lines, getString(R.string.queue_labels_title),
-            Settings.extraQueues(this).filter { Settings.queueLabel(this, it).isNotEmpty() }
+            (listOf(Extra.id(Settings.region(this), Settings.queue(this))) + Settings.extraQueues(this))
+                .filter { Settings.queueLabel(this, it).isNotEmpty() }
                 .joinToString(", ") { Extra.text(this, it) + " — " + Settings.queueLabel(this, it) }
-                .ifEmpty { getString(if (Settings.extraQueues(this).isEmpty()) R.string.queue_labels_add_first else R.string.queue_labels_none) }
+                .ifEmpty { getString(R.string.queue_labels_none) }
         )
         val maybeOff = Settings.maybeIsOff(this)
         yellow.label.text = getString(if (maybeOff) CoreR.string.yellow_as_outage else CoreR.string.yellow_as_power)

@@ -475,7 +475,7 @@ class MainActivity : Activity() {
         val src = Settings.source(this)
         regionRow.text = getString(R.string.two_lines, getString(R.string.region), getString(Settings.region(this).nameRes))
         sourceRow.text = getString(R.string.two_lines, getString(R.string.source), src.host)
-        queueRow.text = getString(R.string.two_lines, getString(R.string.queue), Settings.queue(this))
+        queueRow.text = getString(R.string.two_lines, getString(R.string.queue), Settings.mainQueueText(this))
         val blocked = !Notify.enabled(this)
         for ((row, title, lead) in listOf(
             Triple(notifyOffRow, getString(R.string.before_off), Settings.notifyOff(this)),
@@ -544,7 +544,8 @@ class MainActivity : Activity() {
             topMargin = dp(top).toInt()
         })
         add(label(11f, Palette.LABEL, bold = true).apply {
-            text = getString(R.string.queue_upper, Settings.queue(this@MainActivity))
+            text = getString(R.string.queue_upper, Settings.queue(this@MainActivity)) +
+                Settings.mainLabel(this@MainActivity).let { if (it.isEmpty()) "" else " · " + it.uppercase() }
             letterSpacing = 0.1f
         })
         if (st == null) {

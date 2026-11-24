@@ -111,7 +111,7 @@ class QueuesActivity : Activity() {
                 addView(ui.label(26f, Palette.WHITE, bold = true).apply { text = name })
                 // the main queue says so; an extra one shows the name the user gave it
                 // the main queue says so; an extra one the region (if it is not the main one's) and the name the user gave it
-                val tag = if (isMain) getString(R.string.queue_main_tag) else extra?.let { id ->
+                val tag = if (isMain) listOf(getString(R.string.queue_main_tag), Settings.mainLabel(this@QueuesActivity)).filter { it.isNotEmpty() }.joinToString(" · ") else extra?.let { id ->
                     listOfNotNull(
                         Extra.region(id)?.takeIf { it != Settings.region(this@QueuesActivity) }?.let { Extra.shortRegion(this@QueuesActivity, it) },
                         Settings.queueLabel(this@QueuesActivity, id).takeIf { it.isNotEmpty() },

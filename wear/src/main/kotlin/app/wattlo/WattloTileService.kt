@@ -50,7 +50,7 @@ class WattloTileService : TileService() {
         maybe = Store.loadMaybe(this)
         val err = Store.error(this)
         val fetched = Store.fetchedAt(this)
-        queue = Settings.queue(this)
+        queue = Settings.queue(this) + Settings.mainLabel(this).let { if (it.isEmpty()) "" else " · " + it.uppercase() }
         rings = Settings.tileRings(this)
         innerLabels = Settings.tileInnerLabels(this)
         showNext = Settings.tileShowNext(this)

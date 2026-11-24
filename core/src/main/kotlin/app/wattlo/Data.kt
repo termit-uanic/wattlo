@@ -403,14 +403,28 @@ object Settings {
 
     const val MAX_LABEL = 16
 
-    /** A short name of an extra queue ("parents", "sister"), for the phone app only like the extra queues; "" when none. */
+    /**
+     * A short name of a queue ("parents", "sister", "home"), for the phone app only; "" when none. The name belongs to the
+     * queue (region and number), so it stays with it when the queue moves between "main" and "additional".
+     */
     fun queueLabel(c: Context, id: String): String = p(c).getString("label_$id", "").orEmpty()
+
+    /** The name of the main queue. */
+    fun mainLabel(c: Context): String = queueLabel(c, Extra.id(region(c), queue(c)))
+
+    /** The name of a queue as the screens address it: null is the main queue. */
+    fun labelOf(c: Context, extra: String?): String = if (extra == null) mainLabel(c) else queueLabel(c, extra)
 
     fun setQueueLabel(c: Context, id: String, label: String) {
         if (!Extra.isValid(id)) return
         val clean = label.trim().take(MAX_LABEL)
         p(c).edit().apply { if (clean.isEmpty()) remove("label_$id") else putString("label_$id", clean) }.apply()
+        // the name of the main queue is shared with the watch (the names of the additional queues stay on the phone)
+        if (id == Extra.id(region(c), queue(c))) touch(c)
     }
+
+    /** The name of the main queue shown after the queue: "5.2 (home)", or just "5.2". */
+    fun mainQueueText(c: Context): String = queue(c) + mainLabel(c).let { if (it.isEmpty()) "" else " ($it)" }
 
     private fun writeExtras(c: Context, list: List<String>) {
         p(c).edit().putString("extraQueues", list.joinToString(",")).apply()
@@ -431,6 +445,8 @@ object Settings {
         val region: String = Region.POLTAVA.name,
         // push messages about changed schedules (Google Firebase Cloud Messaging), see Push
         val push: Boolean = true,
+        // the name of the main queue ("home"); empty = none
+        val mainLabel: String = "",
     ) {
         /** Values from the other device are not trusted blindly: anything out of range falls back to the defaults. */
         fun sanitized(): Synced {
@@ -439,6 +455,7 @@ object Settings {
                 region = r.name,
                 source = if (r.sources.any { it.name == source }) source else r.sources.first().name,
                 queue = queue.takeIf { it in r.queues } ?: r.defaultQueue,
+                mainLabel = mainLabel.trim().take(MAX_LABEL),
             ).clamped()
         }
 
@@ -455,7 +472,7 @@ object Settings {
     fun synced(c: Context) = Synced(
         source(c).name, queue(c), maybeIsOff(c), notifyOff(c), notifyOn(c), quietFrom(c), quietTo(c),
         notifyTodayChanged(c), notifyTomorrowNew(c),
-        tileRings(c), tileInnerLabels(c), tileShowNext(c), wearAppRings(c), wearAppInnerLabels(c), region(c).name, pushEnabled(c),
+        tileRings(c), tileInnerLabels(c), tileShowNext(c), wearAppRings(c), wearAppInnerLabels(c), region(c).name, pushEnabled(c), mainLabel(c),
     )
 
     /** When the shared settings were last changed on any device (ms since epoch; 0 = never). */
@@ -488,6 +505,12 @@ object Settings {
             .putBoolean(if (isWatch) "appInnerLabels" else "wearAppInnerLabels", v.wearAppInnerLabels)
             .putBoolean("push", v.push)
             .putLong("syncTs", ts).apply()
+        // The name goes with the main queue. A device that has no name for the queue it switched to sends none:
+        // that must not wipe the name this device has for it, so an empty name counts only for the same queue.
+        val newId = Extra.id(Region.of(v.region), v.queue)
+        if (Extra.isValid(newId) && (v.mainLabel.isNotEmpty() || (before.first.name == v.region && before.third == v.queue))) {
+            p(c).edit().apply { if (v.mainLabel.isEmpty()) remove("label_$newId") else putString("label_$newId", v.mainLabel) }.apply()
+        }
         Push.sync(c)
         val dataChanged = before != Triple(region(c), source(c), queue(c))
         if (dataChanged) {

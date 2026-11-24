@@ -113,7 +113,8 @@ class WidgetConfigActivity : Activity() {
         val main = Settings.queue(this)
         val all = listOf<String?>(null) + Settings.extraQueues(this)
         val labels = all.map { q ->
-            if (q == null) getString(R.string.widget_queue_main, getString(CoreR.string.queue_name, main))
+            if (q == null) getString(R.string.widget_queue_main, getString(CoreR.string.queue_name, main)) +
+                Settings.mainLabel(this).let { if (it.isEmpty()) "" else " — $it" }
             else named(q)
         }.toTypedArray()
         AlertDialog.Builder(this)

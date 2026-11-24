@@ -236,7 +236,7 @@ object Notify {
         val min = ((java.time.Duration.between(now, at).seconds + 59) / 60).coerceAtLeast(0)
         val hm = "%02d:%02d".format(at.hour, at.minute)
         val title = c.getString(if (off) R.string.notify_off_title else R.string.notify_on_title, hm)
-        val queue = Settings.queue(c)
+        val queue = Settings.mainQueueText(c)
         val text = if (min > 0) c.getString(R.string.notify_text_in, min, queue)
         else c.getString(R.string.notify_text_now, queue)
         val open = PendingIntent.getActivity(

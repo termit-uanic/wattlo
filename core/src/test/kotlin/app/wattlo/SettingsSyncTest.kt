@@ -32,6 +32,13 @@ class SettingsSyncTest {
         assertEquals(0, s.quietTo)
     }
 
+    @Test fun sanitized_mainLabelIsTrimmedAndShortened() {
+        assertEquals("home", ok.copy(mainLabel = "  home ").sanitized().mainLabel)
+        val long = "x".repeat(Settings.MAX_LABEL + 10)
+        assertEquals(Settings.MAX_LABEL, ok.copy(mainLabel = long).sanitized().mainLabel.length)
+        assertEquals("", ok.sanitized().mainLabel) // an older device sends none
+    }
+
     @Test fun sanitized_noRegionMeansPoltava() = assertEquals(Region.POLTAVA.name, ok.sanitized().region)
 
     @Test fun sanitized_unknownRegionFallsBackToPoltava() = assertEquals(Region.POLTAVA.name, ok.copy(region = "MARS").sanitized().region)
