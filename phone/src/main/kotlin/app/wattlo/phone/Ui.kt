@@ -144,6 +144,15 @@ class Ui(private val ctx: Context) {
         }
     }
 
+    /** Shows or hides a row of a [group] together with the divider above it, so that no stray line is left behind. */
+    fun setRowVisible(row: View, visible: Boolean) {
+        val v = if (visible) View.VISIBLE else View.GONE
+        row.visibility = v
+        val parent = row.parent as? android.view.ViewGroup ?: return
+        val i = parent.indexOfChild(row)
+        if (i > 0) parent.getChildAt(i - 1).visibility = v
+    }
+
     fun section(title: String) = label(12f, Palette.LABEL, bold = true).apply {
         text = title.uppercase()
         letterSpacing = 0.1f

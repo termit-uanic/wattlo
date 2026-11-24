@@ -13,6 +13,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import app.wattlo.AppView
 import app.wattlo.Extra
 import app.wattlo.Fetcher
 import app.wattlo.Notify
@@ -58,6 +59,8 @@ class SettingsActivity : Activity() {
     private lateinit var notifyToday: SwitchRow
     private lateinit var notifyTomorrow: SwitchRow
     private lateinit var pushRow: SwitchRow
+    private lateinit var viewRow: TextView
+    private lateinit var wearViewRow: TextView
     private lateinit var quietRow: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,6 +77,12 @@ class SettingsActivity : Activity() {
             Fetcher.notifyAll(this)
             render()
         }
+        viewRow = ui.groupRow(R.drawable.ic_ring) {
+            val all = AppView.PHONE.toList()
+            pickOf(CoreR.string.app_view_title, all.map { viewName(it) }.toTypedArray(), all.indexOf(Settings.appView(this))) {
+                Settings.setAppView(this, all[it])
+            }
+        }
         ringsRow = ui.groupRow(R.drawable.ic_ring) { pickRings() }
         labelsRow = ui.groupRow(R.drawable.ic_text_size) { pickLabels() }
         tileRingsRow = ui.groupRow(R.drawable.ic_ring, watchOnly {
@@ -87,6 +96,12 @@ class SettingsActivity : Activity() {
         tileNext = ui.switchRow(CoreR.drawable.ic_bulb_mono, watchOnly {
             Settings.setTileShowNext(this, !Settings.tileShowNext(this))
             render()
+        })
+        wearViewRow = ui.groupRow(R.drawable.ic_ring, watchOnly {
+            val all = AppView.WATCH.toList()
+            pickOf(R.string.watch_app_view_title, all.map { viewName(it) }.toTypedArray(), all.indexOf(Settings.wearAppView(this))) {
+                Settings.setWearAppView(this, all[it])
+            }
         })
         wearRingsRow = ui.groupRow(R.drawable.ic_ring, watchOnly {
             pickOf(R.string.watch_app_rings_title, rings(), Settings.wearAppRings(this) - 1) { Settings.setWearAppRings(this, it + 1) }
@@ -128,11 +143,11 @@ class SettingsActivity : Activity() {
             addView(ui.group(regionRow, sourceRow, queueRow, extraQueuesRow, queueLabelsRow, yellow.card), ui.lp())
 
             addView(ui.section(getString(R.string.display_title)))
-            addView(ui.group(ringsRow, labelsRow), ui.lp())
+            addView(ui.group(viewRow, ringsRow, labelsRow), ui.lp())
 
             addView(ui.section(getString(R.string.watch_display_title)))
             addView(watchHint)
-            watchGroup = ui.group(tileRingsRow, tileLabelsRow, tileNext.card, wearRingsRow, wearLabelsRow)
+            watchGroup = ui.group(tileRingsRow, tileLabelsRow, tileNext.card, wearViewRow, wearRingsRow, wearLabelsRow)
             addView(watchGroup, ui.lp())
 
             addView(ui.section(getString(CoreR.string.notifications)))
@@ -389,10 +404,19 @@ class SettingsActivity : Activity() {
             .show()
     }
 
+    private fun viewNameRes(v: AppView) = when (v) {
+        AppView.RING -> CoreR.string.view_ring
+        AppView.LINE -> CoreR.string.view_line
+        AppView.TIMELINE -> CoreR.string.view_timeline
+        AppView.STAGES -> CoreR.string.view_stages
+    }
+
+    private fun viewName(v: AppView) = getString(viewNameRes(v))
+
     private fun pickRings() {
         val items = arrayOf(getString(CoreR.string.tile_rings_one), getString(CoreR.string.tile_rings_two))
         AlertDialog.Builder(this)
-            .setTitle(getString(CoreR.string.app_rings_title))
+            .setTitle(getString(R.string.phone_rings_title))
             .setSingleChoiceItems(items, Settings.appRings(this) - 1) { d, i ->
                 d.dismiss()
                 Settings.setAppRings(this, i + 1)
@@ -404,7 +428,7 @@ class SettingsActivity : Activity() {
     private fun pickLabels() {
         val items = arrayOf(getString(CoreR.string.tile_labels_outer), getString(CoreR.string.tile_labels_both))
         AlertDialog.Builder(this)
-            .setTitle(getString(CoreR.string.app_labels_title))
+            .setTitle(getString(R.string.phone_labels_title))
             .setSingleChoiceItems(items, if (Settings.appInnerLabels(this)) 1 else 0) { d, i ->
                 d.dismiss()
                 Settings.setAppInnerLabels(this, i == 1)
@@ -515,12 +539,14 @@ class SettingsActivity : Activity() {
         yellow.label.text = getString(if (maybeOff) CoreR.string.yellow_as_outage else CoreR.string.yellow_as_power)
         yellow.sw.isChecked = maybeOff
 
+        viewRow.text = ui.two(CoreR.string.app_view_title, viewNameRes(Settings.appView(this)))
+        wearViewRow.text = ui.two(R.string.watch_app_view_title, viewNameRes(Settings.wearAppView(this)))
         ringsRow.text = getString(
-            CoreR.string.two_lines, getString(CoreR.string.app_rings_title),
+            CoreR.string.two_lines, getString(R.string.phone_rings_title),
             getString(if (Settings.appRings(this) == 2) CoreR.string.tile_rings_two else CoreR.string.tile_rings_one)
         )
         labelsRow.text = getString(
-            CoreR.string.two_lines, getString(CoreR.string.app_labels_title),
+            CoreR.string.two_lines, getString(R.string.phone_labels_title),
             getString(if (Settings.appInnerLabels(this)) CoreR.string.tile_labels_both else CoreR.string.tile_labels_outer)
         )
 
@@ -530,6 +556,10 @@ class SettingsActivity : Activity() {
         tileNext.sw.isChecked = Settings.tileShowNext(this)
         wearRingsRow.text = ui.two(R.string.watch_app_rings_title, if (Settings.wearAppRings(this) == 2) CoreR.string.tile_rings_two else CoreR.string.tile_rings_one)
         wearLabelsRow.text = ui.two(R.string.watch_app_labels_title, if (Settings.wearAppInnerLabels(this)) CoreR.string.tile_labels_both else CoreR.string.tile_labels_outer)
+        // the ring and the hour numbers of the watch app only matter for the ring view
+        val wearRing = Settings.wearAppView(this) == AppView.RING
+        ui.setRowVisible(wearRingsRow, wearRing)
+        ui.setRowVisible(wearLabelsRow, wearRing)
 
         val ready = watchReady
         watchGroup.alpha = if (ready) 1f else 0.45f

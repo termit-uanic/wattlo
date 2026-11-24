@@ -18,7 +18,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.concurrent.thread
@@ -47,6 +49,7 @@ class MainActivity : Activity() {
     private lateinit var quietRow: TextView
     private lateinit var tileRow: TextView
     private lateinit var tileLabelsRow: TextView
+    private lateinit var appViewRow: TextView
     private lateinit var appRingsRow: TextView
     private lateinit var appLabelsRow: TextView
     private lateinit var settingsBox: LinearLayout
@@ -57,12 +60,14 @@ class MainActivity : Activity() {
     private var busy = false
     private var sidePx = 0
     private var todayDial: DialView? = null
+    /** Moves the "now" mark of the line view between the half-hour rebuilds. */
+    private var liveUpdate: (() -> Unit)? = null
 
     /** What the lists and the footer were built for: the day, the half-hour slot, the data and its error. */
     private var shownSlot = ""
 
     private fun slotKey(now: ZonedDateTime) =
-        "${now.toLocalDate()}#${Schedule.slotOf(now)}#${Store.fetchedAt(this)}#${Store.error(this)}"
+        "${now.toLocalDate()}#${Schedule.slotOf(now)}#${Store.fetchedAt(this)}#${Store.error(this)}#${Settings.appView(this)}"
 
     private val tick = object : Runnable {
         override fun run() {
@@ -128,6 +133,7 @@ class MainActivity : Activity() {
         quietRow = settingRow { pickQuiet() }
         tileRow = settingRow { pickTileRings() }
         tileLabelsRow = settingRow { pickTileLabels() }
+        appViewRow = settingRow { pickAppView() }
         appRingsRow = settingRow { pickAppRings() }
         appLabelsRow = settingRow { pickAppLabels() }
 
@@ -146,6 +152,7 @@ class MainActivity : Activity() {
             add(tileRow)
             add(tileLabelsRow)
             add(tileNext.card)
+            add(appViewRow)
             add(appRingsRow)
             add(appLabelsRow)
             addView(label(13f, Palette.WHITE, bold = true).apply {
@@ -343,6 +350,26 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun viewNameRes(v: AppView) = when (v) {
+        AppView.RING -> R.string.view_ring
+        AppView.LINE -> R.string.view_line
+        AppView.TIMELINE -> R.string.view_timeline
+        AppView.STAGES -> R.string.view_stages
+    }
+
+    /** How the app screens draw the schedule; the phone's settings screen sets it for the watch too. */
+    private fun pickAppView() {
+        val all = AppView.WATCH.toList()
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.app_view_title))
+            .setSingleChoiceItems(all.map { getString(viewNameRes(it)) }.toTypedArray(), all.indexOf(Settings.appView(this))) { d, i ->
+                d.dismiss()
+                Settings.setAppView(this, all[i])
+                render()
+            }
+            .show()
+    }
+
     /** The same choice for the day dials in the app; it does not touch the tile. */
     private fun pickAppRings() {
         val items = arrayOf(getString(R.string.tile_rings_one), getString(R.string.tile_rings_two))
@@ -426,8 +453,49 @@ class MainActivity : Activity() {
     private fun render() {
         if (!::scroll.isInitialized) return renderContent()
         val y = scroll.scrollY
+        val content = scroll.getChildAt(0)
+        // While the settings are on screen, what is above them (the schedule: a ring, a line, the phases, a list of a
+        // different length after a change of the queue or the view) may change height. A plain restore of the scroll
+        // position would then land on other rows, so the first settings row in view is kept where it is instead.
+        val anchor = firstVisibleSettingsRow(content, y)
+        val before = anchor?.let { topInContent(it, content) }
         renderContent()
-        scroll.post { scroll.scrollTo(0, y) }
+        if (anchor == null || before == null) {
+            scroll.post { scroll.scrollTo(0, y) }
+            return
+        }
+        val onLayout = object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(v: View?, l: Int, t: Int, r: Int, b: Int, ol: Int, ot: Int, or: Int, ob: Int) {
+                content.removeOnLayoutChangeListener(this)
+                // an anchor that is no longer shown (a row that was hidden) cannot hold the position
+                if (anchor.visibility == View.VISIBLE) scroll.scrollTo(0, y + topInContent(anchor, content) - before)
+            }
+        }
+        content.addOnLayoutChangeListener(onLayout)
+        // no layout at all (nothing changed in size): do not leave the listener behind for an unrelated one
+        scroll.postDelayed({ content.removeOnLayoutChangeListener(onLayout) }, 500)
+    }
+
+    /** The settings row that is at the top of the screen (or the first one below it); null when no settings are in view. */
+    private fun firstVisibleSettingsRow(content: View, scrollY: Int): View? {
+        if (settingsBox.visibility != View.VISIBLE) return null
+        for (i in 0 until settingsBox.childCount) {
+            val row = settingsBox.getChildAt(i)
+            if (row.visibility != View.VISIBLE) continue
+            if (topInContent(row, content) + row.height > scrollY) return row.takeIf { topInContent(it, content) < scrollY + scroll.height }
+        }
+        return null
+    }
+
+    /** The top of [v] within the scrolled [content]. */
+    private fun topInContent(v: View, content: View): Int {
+        var top = 0
+        var cur: View = v
+        while (cur !== content) {
+            top += cur.top
+            cur = cur.parent as? View ?: break
+        }
+        return top
     }
 
     /** Only the header (state and countdown): cheap, runs every minute. */
@@ -437,6 +505,7 @@ class MainActivity : Activity() {
         val now = ZonedDateTime.now(Schedule.ZONE)
         renderHead(Schedule.status(days, now), now, Schedule.at(maybe, now) == true)
         todayDial?.setNow(now.hour * 60 + now.minute) // the "now" mark of today's ring
+        liveUpdate?.invoke()
     }
 
     private fun renderContent() {
@@ -448,10 +517,17 @@ class MainActivity : Activity() {
 
         lists.removeAllViews()
         todayDial = null
+        liveUpdate = null
         val today = now.toLocalDate()
         val tomorrow = today.plusDays(1)
-        dayBlock(R.string.today, today, days[today], maybe[today], Schedule.slotOf(now), now.hour * 60 + now.minute)
-        dayBlock(R.string.tomorrow, tomorrow, days[tomorrow], maybe[tomorrow], -1, -1)
+        when (Settings.appView(this)) {
+            AppView.LINE -> lineBlocks(days, maybe, now)
+            AppView.STAGES -> stageBlocks(days, now)
+            else -> {
+                dayBlock(R.string.today, today, days[today], maybe[today], Schedule.slotOf(now), now.hour * 60 + now.minute)
+                dayBlock(R.string.tomorrow, tomorrow, days[tomorrow], maybe[tomorrow], -1, -1)
+            }
+        }
         if (maybe.values.any { m -> m.any { it } }) {
             lists.addView(label(11f, Palette.LABEL).apply {
                 text = getString(R.string.yellow_hint)
@@ -521,6 +597,11 @@ class MainActivity : Activity() {
             R.string.two_lines, getString(R.string.tile_labels_title),
             getString(if (Settings.tileInnerLabels(this)) R.string.tile_labels_both else R.string.tile_labels_outer)
         )
+        appViewRow.text = getString(R.string.two_lines, getString(R.string.app_view_title), getString(viewNameRes(Settings.appView(this))))
+        // the ring and the hour numbers of the app only matter for the ring view
+        val ringView = Settings.appView(this) == AppView.RING
+        appRingsRow.visibility = if (ringView) View.VISIBLE else View.GONE
+        appLabelsRow.visibility = if (ringView) View.VISIBLE else View.GONE
         appRingsRow.text = getString(
             R.string.two_lines, getString(R.string.app_rings_title),
             getString(if (Settings.appRings(this) == 2) R.string.tile_rings_two else R.string.tile_rings_one)
@@ -653,6 +734,129 @@ class MainActivity : Activity() {
                     else Fmt.duration(this@MainActivity, java.time.Duration.ofMinutes((b - a) * 30L))
                 })
             })
+        }
+    }
+
+    // ---------------------------------------------------------------- the line and the stages
+
+    /**
+     * A window of 12 hours around now as one line (3 h behind, 9 h ahead: a whole day would be too thin on a watch),
+     * the coming changes, and tomorrow as a thin bar of its own (or a note that it is not published yet).
+     */
+    private fun lineBlocks(days: Map<LocalDate, BooleanArray>, maybe: Map<LocalDate, BooleanArray>, now: ZonedDateTime) {
+        val yellow = Settings.maybeIsOff(this)
+        fun windowData(t: ZonedDateTime): LineBarData {
+            val first = t.withMinute(if (t.minute >= 30) 30 else 0).withSecond(0).withNano(0).minusMinutes(30L * DayLine.WINDOW_BEFORE)
+            val ticks = (0..DayLine.WINDOW_SLOTS step 6).map { k ->
+                k / DayLine.WINDOW_SLOTS.toFloat() to "%02d".format(first.plusMinutes(30L * k).hour)
+            }
+            val into = (t.minute % 30) / 30f
+            return LineBarData(
+                DayLine.windowRoles(days, maybe, yellow, t), DayLine.WINDOW_BEFORE,
+                (DayLine.WINDOW_BEFORE + into) / DayLine.WINDOW_SLOTS, ticks,
+            )
+        }
+        val bar = LineBarView(this, windowData(now), 34f, 11f)
+        lists.addView(bar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(6f).toInt() })
+        liveUpdate = { bar.setData(windowData(ZonedDateTime.now(Schedule.ZONE))) }
+
+        lists.addView(label(11f, Palette.LABEL, bold = true).apply {
+            text = getString(R.string.upcoming_title)
+            setPadding(0, dp(10f).toInt(), 0, dp(2f).toInt())
+        })
+        val changes = Schedule.changes(days, now, 4)
+        if (changes.isEmpty()) lists.addView(label(13f, Palette.GREY).apply {
+            text = getString(R.string.no_schedule_yet)
+        })
+        for (t in changes) {
+            val off = Schedule.at(days, t) == true
+            lists.addView(LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(3f).toInt(), 0, dp(3f).toInt())
+                addView(View(context).apply {
+                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(if (off) Palette.RED else Palette.GREEN) }
+                }, LinearLayout.LayoutParams(dp(8f).toInt(), dp(8f).toInt()).apply { rightMargin = dp(8f).toInt() })
+                addView(label(14f, Palette.WHITE, bold = true).apply {
+                    text = "%02d:%02d".format(t.hour, t.minute) +
+                        if (t.toLocalDate() == now.toLocalDate()) "" else " " + getString(R.string.event_tomorrow_short)
+                }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                addView(label(12f, Palette.LABEL).apply {
+                    text = getString(R.string.event_in, Fmt.duration(this@MainActivity, Duration.between(now, t).plusSeconds(59)))
+                })
+            })
+        }
+
+        val tomorrow = now.toLocalDate().plusDays(1)
+        lists.addView(label(11f, Palette.LABEL, bold = true).apply {
+            text = getString(R.string.tomorrow)
+            setPadding(0, dp(12f).toInt(), 0, 0)
+        })
+        val tomorrowBar = LineBarView(
+            this,
+            LineBarData(
+                DayLine.dayRoles(days[tomorrow], maybe[tomorrow], yellow),
+                ticks = if (days[tomorrow] != null) listOf(0f to "00", .5f to "12", 1f to "24") else emptyList(),
+                placeholder = if (days[tomorrow] == null) getString(R.string.not_published) else null,
+            ),
+            16f, 11f,
+        )
+        lists.addView(tomorrowBar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    }
+
+    /** The coming phases of the state one under another, each as tall as it is long: a quick "what next". */
+    private fun stageBlocks(days: Map<LocalDate, BooleanArray>, now: ZonedDateTime) {
+        val phases = DayLine.phases(days, now, 4)
+        if (phases.isEmpty()) {
+            lists.addView(label(14f, Palette.GREY).apply { text = getString(R.string.no_schedule_yet) })
+            return
+        }
+        val dark = 0xFF1A1A1A.toInt()
+        // how far the current phase has got: from its start (or from where the data begins) to its end
+        val since = Schedule.status(days, now)?.since?.takeIf { it.isBefore(now) } ?: now
+        for ((i, p) in phases.withIndex()) {
+            val len = Duration.between(p.from, p.to)
+            val hours = len.toMinutes() / 60f
+            val progress = i == 0 && Duration.between(since, p.to).toMinutes() > 0
+            val h = (dp(46f) + dp(8f) * hours).coerceAtMost(dp(96f)).toInt() + if (progress) dp(12f).toInt() else 0
+            val line1 = when {
+                i == 0 -> getString(R.string.until_time, hhmm(p.to, now))
+                p.open -> getString(R.string.time_range, hhmm(p.from, now), "…")
+                else -> getString(R.string.time_range, hhmm(p.from, now), hhmm(p.to, now))
+            }
+            lists.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                background = GradientDrawable().apply { cornerRadius = dp(14f); setColor(if (p.off) Palette.RED else Palette.GREEN) }
+                addView(label(12f, dark).apply { text = line1; gravity = Gravity.CENTER })
+                addView(label(18f, dark, bold = true).apply {
+                    text = (if (p.open) "≥ " else "") + Fmt.duration(this@MainActivity, len)
+                    gravity = Gravity.CENTER
+                })
+                if (progress) {
+                    // a thin bar: the dark part is the share of the whole phase that is over
+                    val total = Duration.between(since, p.to).toMinutes().toFloat()
+                    val done = Duration.between(since, now).toMinutes().toFloat().coerceIn(0f, total)
+                    addView(LinearLayout(context).apply {
+                        background = GradientDrawable().apply { cornerRadius = dp(3f); setColor(0x33000000) }
+                        addView(View(context).apply {
+                            background = GradientDrawable().apply { cornerRadius = dp(3f); setColor(0xCC000000.toInt()) }
+                        }, LinearLayout.LayoutParams(0, MATCH_PARENT, done))
+                        addView(View(context), LinearLayout.LayoutParams(0, MATCH_PARENT, total - done))
+                    }, LinearLayout.LayoutParams(MATCH_PARENT, dp(6f).toInt()).apply {
+                        topMargin = dp(6f).toInt()
+                        leftMargin = dp(22f).toInt()
+                        rightMargin = dp(22f).toInt()
+                    })
+                }
+            }, LinearLayout.LayoutParams(MATCH_PARENT, h).apply { topMargin = dp(if (i == 0) 6f else 4f).toInt() })
+        }
+        // the data ends before the next day starts: say so instead of leaving the list hanging
+        if (phases.last().open && days[now.toLocalDate().plusDays(1)] == null) {
+            lists.addView(label(12f, Palette.LABEL).apply {
+                text = getString(R.string.not_published)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(8f).toInt(), 0, 0)
+            }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
     }
 

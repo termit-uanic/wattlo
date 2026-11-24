@@ -102,4 +102,7 @@
     <string name="widget_in">in %1$s</string>
     <string name="widget_tomorrow_short">tomorrow</string>
     <string name="widget_upcoming">Upcoming changes</string>
+    <string name="watch_app_view_title">App view on the watch</string>
+    <string name="phone_rings_title">Ring (app and widgets)</string>
+    <string name="phone_labels_title">Hour labels (app and widgets, two rings)</string>
 </resources>

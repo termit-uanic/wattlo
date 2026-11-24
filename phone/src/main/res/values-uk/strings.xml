@@ -102,4 +102,7 @@
     <string name="widget_in">через %1$s</string>
     <string name="widget_tomorrow_short">завтра</string>
     <string name="widget_upcoming">Найближчі зміни</string>
+    <string name="watch_app_view_title">Вигляд графіка на годиннику (застосунок)</string>
+    <string name="phone_rings_title">Кільце (застосунок і віджети)</string>
+    <string name="phone_labels_title">Підписи годин (застосунок і віджети, два кільця)</string>
 </resources>

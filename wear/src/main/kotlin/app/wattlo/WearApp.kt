@@ -10,9 +10,13 @@ class WearApp : Application() {
         Settings.isWatch = true
         Surfaces.onChange = { c ->
             TileService.getUpdater(c).requestUpdate(WattloTileService::class.java)
+            TileService.getUpdater(c).requestUpdate(WattloLineTileService::class.java)
             WattloComplicationService.requestUpdate(c)
         }
-        Surfaces.onFetched = { c -> TileService.getUpdater(c).requestUpdate(WattloTileService::class.java) }
+        Surfaces.onFetched = { c ->
+            TileService.getUpdater(c).requestUpdate(WattloTileService::class.java)
+            TileService.getUpdater(c).requestUpdate(WattloLineTileService::class.java)
+        }
         Surfaces.openApp = { c -> Intent(c, MainActivity::class.java) }
         Settings.publishOnce(this) // tell the phone how the watch looks, once
         SettingsSync.pull(this)

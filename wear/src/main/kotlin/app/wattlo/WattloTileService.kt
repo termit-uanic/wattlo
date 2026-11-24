@@ -33,8 +33,12 @@ import java.time.temporal.ChronoUnit
 /**
  * Tile: a 24-hour ring around the edge (see [TileRing]); queue, status and countdown in the centre.
  * Timeline: a layout per half hour (~3 h ahead); the countdown is dynamic text computed by the watch.
+ * [WattloLineTileService] is the same tile with a 12-hour line under the countdown instead of the ring.
  */
-class WattloTileService : TileService() {
+open class WattloTileService : TileService() {
+    /** The line tile: a window of 12 hours as a row of dashes in the middle, no ring. */
+    protected open val lineMode = false
+
     private var queue = ""
     private var maybe: Map<LocalDate, BooleanArray> = emptyMap()
     private var stale = false
@@ -124,8 +128,8 @@ class WattloTileService : TileService() {
                     )
                     .build()
             )
-            .apply { ring(days, now).forEach { addContent(it) } }
-            .addContent(center(st, now, err, fetched))
+            .apply { if (!lineMode) ring(days, now).forEach { addContent(it) } }
+            .addContent(center(days, st, now, err, fetched))
             .build()
     }
 
@@ -143,6 +147,7 @@ class WattloTileService : TileService() {
     }
 
     private fun center(
+        days: Map<LocalDate, BooleanArray>,
         st: Schedule.Status?,
         now: ZonedDateTime,
         err: String?,
@@ -175,7 +180,8 @@ class WattloTileService : TileService() {
                 .addContent(
                     countdown(st, now)
                 )
-                .addContent(gap(2f))
+            if (lineMode) col.addContent(gap(6f)).addContent(windowRow(days, now)).addContent(gap(2f)).addContent(windowTicks(now))
+            col.addContent(gap(2f))
                 .addContent(
                     text(
                         getString(
@@ -190,7 +196,7 @@ class WattloTileService : TileService() {
                     )
                 )
             // how long the next phase lasts, as in the app: "then 1h without power" / "then 3h with power"
-            st.nextLen?.takeIf { showNext }?.let {
+            st.nextLen?.takeIf { showNext && !lineMode }?.let {
                 val len = (if (st.nextEndIsMinimum) "≥ " else "") + Fmt.duration(this, it)
                 col.addContent(gap(1f))
                     .addContent(
@@ -215,7 +221,7 @@ class WattloTileService : TileService() {
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
-                    .setPadding(ModifiersBuilders.Padding.Builder().setAll(dp(TileRing.centerPaddingDp(rings, innerLabels))).build())
+                    .setPadding(ModifiersBuilders.Padding.Builder().setAll(dp(if (lineMode) 14f else TileRing.centerPaddingDp(rings, innerLabels))).build())
                     .build()
             )
             .addContent(col.build())
@@ -255,13 +261,63 @@ class WattloTileService : TileService() {
             .setMaxLines(1)
             .setFontStyle(
                 FontStyle.Builder()
-                    .setSize(sp(TileRing.countdownSp(rings, innerLabels)))
+                    .setSize(sp(if (lineMode) 30f else TileRing.countdownSp(rings, innerLabels)))
                     .setColor(argb(WHITE))
                     .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
                     .build()
             )
             .build()
         return LayoutElementBuilders.Column.Builder().addContent(text).build()
+    }
+
+    /**
+     * The 12-hour window as dashes, 3 h behind now and 9 h ahead (a whole day would be too thin on a watch): what is
+     * over is dark and the dash of the current half hour is taller and outlined in white.
+     */
+    private fun windowRow(days: Map<LocalDate, BooleanArray>, now: ZonedDateTime): LayoutElement {
+        val roles = DayLine.windowRoles(days, maybe, Settings.maybeIsOff(this), now)
+        val row = Row.Builder().setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+        for ((i, role) in roles.withIndex()) {
+            val past = i < DayLine.WINDOW_BEFORE
+            val cur = i == DayLine.WINDOW_BEFORE
+            val color = when (role) {
+                DialModel.Role.RED -> if (past) RED_DIM else RED
+                DialModel.Role.AMBER -> if (past) Palette.AMBER_DIM else AMBER
+                DialModel.Role.GREEN -> if (past) GREEN_DIM else GREEN
+                DialModel.Role.NO_DATA -> NODATA
+            }
+            if (i > 0) row.addContent(Spacer.Builder().setWidth(dp(1f)).build())
+            row.addContent(
+                Box.Builder().setWidth(dp(6.5f)).setHeight(dp(if (cur) 26f else 20f))
+                    .setModifiers(
+                        ModifiersBuilders.Modifiers.Builder()
+                            .setBackground(
+                                ModifiersBuilders.Background.Builder().setColor(argb(color))
+                                    .setCorner(ModifiersBuilders.Corner.Builder().setRadius(dp(2f)).build()).build()
+                            )
+                            .apply {
+                                if (cur) setBorder(ModifiersBuilders.Border.Builder().setWidth(dp(1.5f)).setColor(argb(WHITE)).build())
+                            }
+                            .build()
+                    )
+                    .build()
+            )
+        }
+        return row.build()
+    }
+
+    /** The hours under the window: its start, middle and end. */
+    private fun windowTicks(now: ZonedDateTime): LayoutElement {
+        val first = now.withMinute(if (now.minute >= 30) 30 else 0).withSecond(0).withNano(0)
+            .minusMinutes(30L * DayLine.WINDOW_BEFORE)
+        fun h(k: Int) = text("%02d".format(first.plusMinutes(30L * k).hour), 10f, LABEL)
+        return Row.Builder().setWidth(dp(24 * 6.5f + 23f))
+            .addContent(h(0))
+            .addContent(Spacer.Builder().setWidth(expand()).build())
+            .addContent(h(12))
+            .addContent(Spacer.Builder().setWidth(expand()).build())
+            .addContent(h(DayLine.WINDOW_SLOTS))
+            .build()
     }
 
     private fun hhmm(t: ZonedDateTime): String =

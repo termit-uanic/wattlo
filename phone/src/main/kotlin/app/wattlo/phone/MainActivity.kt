@@ -16,11 +16,15 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import app.wattlo.AppView
+import app.wattlo.DayLine
 import app.wattlo.DialData
 import app.wattlo.DialView
 import app.wattlo.Extra
 import app.wattlo.Fetcher
 import app.wattlo.Fmt
+import app.wattlo.LineBarData
+import app.wattlo.LineBarView
 import app.wattlo.Palette
 import app.wattlo.Refresh
 import app.wattlo.Schedule
@@ -49,6 +53,8 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var busy = false
     private var todayDial: DialView? = null
+    /** Moves the "now" mark of the line views between the half-hour rebuilds. */
+    private var liveUpdate: (() -> Unit)? = null
     private lateinit var queueBar: LinearLayout
 
     /** The queue shown: null is the main one; an extra queue only while it is still in the settings. */
@@ -63,7 +69,7 @@ class MainActivity : Activity() {
     private fun slotKey(now: ZonedDateTime) =
         "${now.toLocalDate()}#${Schedule.slotOf(now)}#${Store.fetchedAt(this, shown)}#${Store.error(this, shown)}#" +
             "$shown#${Settings.queue(this)}#${Settings.extraQueues(this)}#" +
-            "${Settings.appRings(this)}#${Settings.appInnerLabels(this)}#${Settings.maybeIsOff(this)}"
+            "${Settings.appRings(this)}#${Settings.appInnerLabels(this)}#${Settings.maybeIsOff(this)}#${Settings.appView(this)}"
 
     private val tick = object : Runnable {
         override fun run() {
@@ -202,6 +208,7 @@ class MainActivity : Activity() {
         val now = ZonedDateTime.now(Schedule.ZONE)
         renderHead(Schedule.status(days, now), now, Schedule.at(maybe, now) == true)
         todayDial?.setNow(now.hour * 60 + now.minute)
+        liveUpdate?.invoke()
     }
 
     private fun renderContent() {
@@ -214,10 +221,17 @@ class MainActivity : Activity() {
 
         lists.removeAllViews()
         todayDial = null
+        liveUpdate = null
         val today = now.toLocalDate()
         val tomorrow = today.plusDays(1)
-        dayBlock(CoreR.string.today, today, days[today], maybe[today], Schedule.slotOf(now), now.hour * 60 + now.minute)
-        dayBlock(CoreR.string.tomorrow, tomorrow, days[tomorrow], maybe[tomorrow], -1, -1)
+        when (Settings.appView(this)) {
+            AppView.LINE -> lineBlocks(days, maybe, now)
+            AppView.TIMELINE -> timelineBlock(days, maybe, now)
+            else -> {
+                dayBlock(CoreR.string.today, today, days[today], maybe[today], Schedule.slotOf(now), now.hour * 60 + now.minute)
+                dayBlock(CoreR.string.tomorrow, tomorrow, days[tomorrow], maybe[tomorrow], -1, -1)
+            }
+        }
         if (maybe.values.any { m -> m.any { it } }) {
             lists.addView(ui.label(12f, Palette.LABEL).apply {
                 text = getString(CoreR.string.yellow_hint)
@@ -359,6 +373,116 @@ class MainActivity : Activity() {
                 })
             })
         }
+    }
+
+    // ---------------------------------------------------------------- the line and the timeline
+
+    /** "−8h" in red, "power all day" in green, "no schedule yet" in grey: what a day adds up to. */
+    private fun summaryOf(flags: BooleanArray?): Pair<String, Int> = when {
+        flags == null -> getString(CoreR.string.no_schedule_yet) to Palette.LABEL
+        flags.none { it } -> getString(CoreR.string.power_all_day) to Palette.GREEN
+        else -> getString(CoreR.string.minus, Fmt.duration(this, Schedule.offDuration(flags))) to Palette.RED
+    }
+
+    private fun barData(
+        days: Map<LocalDate, BooleanArray>, maybe: Map<LocalDate, BooleanArray>, date: LocalDate, now: ZonedDateTime,
+        ticks: Boolean,
+    ): LineBarData {
+        val isToday = date == now.toLocalDate()
+        return LineBarData(
+            DayLine.dayRoles(days[date], maybe[date], Settings.maybeIsOff(this)),
+            past = if (isToday) Schedule.slotOf(now) else 0,
+            nowFrac = if (isToday) (now.hour * 60 + now.minute) / 1440f else -1f,
+            ticks = if (ticks) listOf(0f to "00", .25f to "06", .5f to "12", .75f to "18", 1f to "24") else emptyList(),
+            placeholder = if (days[date] != null) null
+                else getString(if (isToday) CoreR.string.no_schedule_yet else CoreR.string.not_published),
+        )
+    }
+
+    /** Today and tomorrow as two bars (today with the hours above it), then the coming changes of the state. */
+    private fun lineBlocks(days: Map<LocalDate, BooleanArray>, maybe: Map<LocalDate, BooleanArray>, now: ZonedDateTime) {
+        val today = now.toLocalDate()
+        val tomorrow = today.plusDays(1)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(ui.dp(16f).toInt(), ui.dp(14f).toInt(), ui.dp(16f).toInt(), ui.dp(14f).toInt())
+            background = GradientDrawable().apply { cornerRadius = ui.dp(22f); setColor(Palette.CARD) }
+        }
+        fun title(res: Int, flags: BooleanArray?, top: Float) {
+            val (summary, color) = summaryOf(flags)
+            card.addView(LinearLayout(this).apply {
+                addView(ui.label(16f, Palette.WHITE, bold = true).apply { text = getString(res) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                addView(ui.label(14f, color).apply { text = summary })
+            }, ui.lp(top))
+        }
+        title(CoreR.string.today, days[today], 0f)
+        val todayBar = LineBarView(this, barData(days, maybe, today, now, ticks = true), 44f, 12f)
+        card.addView(todayBar, ui.lp(4f))
+        title(CoreR.string.tomorrow, days[tomorrow], 14f)
+        card.addView(LineBarView(this, barData(days, maybe, tomorrow, now, ticks = false), 26f), ui.lp(4f))
+        lists.addView(card, ui.lp(0f))
+        liveUpdate = {
+            val t = ZonedDateTime.now(Schedule.ZONE)
+            if (t.toLocalDate() == today) todayBar.setData(barData(days, maybe, today, t, ticks = true))
+        }
+        upcomingCard(days, now)
+    }
+
+    /** The next changes of the state across midnight: "13:00  Power comes back  in 1h 58m". */
+    private fun upcomingCard(days: Map<LocalDate, BooleanArray>, now: ZonedDateTime) {
+        val changes = Schedule.changes(days, now, 5)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(ui.dp(16f).toInt(), ui.dp(10f).toInt(), ui.dp(16f).toInt(), ui.dp(10f).toInt())
+            background = GradientDrawable().apply { cornerRadius = ui.dp(22f); setColor(Palette.CARD) }
+        }
+        card.addView(ui.label(12f, Palette.LABEL, bold = true).apply { text = getString(CoreR.string.upcoming_title) })
+        if (changes.isEmpty()) card.addView(ui.label(15f, Palette.GREY).apply {
+            text = getString(CoreR.string.no_schedule_yet)
+            setPadding(0, ui.dp(8f).toInt(), 0, ui.dp(4f).toInt())
+        })
+        for (t in changes) {
+            val off = Schedule.at(days, t) == true
+            val time = "%02d:%02d".format(t.hour, t.minute) +
+                if (t.toLocalDate() == now.toLocalDate()) "" else " " + getString(CoreR.string.event_tomorrow_short)
+            card.addView(LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, ui.dp(7f).toInt(), 0, ui.dp(7f).toInt())
+                addView(View(context).apply {
+                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(if (off) Palette.RED else Palette.GREEN) }
+                }, LinearLayout.LayoutParams(ui.dp(9f).toInt(), ui.dp(9f).toInt()).apply { rightMargin = ui.dp(10f).toInt() })
+                addView(ui.label(16f, Palette.WHITE, bold = true).apply { text = time }, LinearLayout.LayoutParams(ui.dp(112f).toInt(), WRAP_CONTENT))
+                addView(ui.label(15f, Palette.GREY).apply {
+                    text = getString(if (off) CoreR.string.event_off else CoreR.string.event_on)
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                addView(ui.label(14f, Palette.LABEL).apply {
+                    text = getString(CoreR.string.event_in, Fmt.duration(this@MainActivity, Duration.between(now, t).plusSeconds(59)))
+                })
+            })
+        }
+        lists.addView(card, ui.lp(12f))
+    }
+
+    /** Today and tomorrow as vertical strips side by side, like a calendar. */
+    private fun timelineBlock(days: Map<LocalDate, BooleanArray>, maybe: Map<LocalDate, BooleanArray>, now: ZonedDateTime) {
+        val today = now.toLocalDate()
+        val tomorrow = today.plusDays(1)
+        fun columns(t: ZonedDateTime): List<TimelineColumn> = listOf(today, tomorrow).map { date ->
+            val isToday = date == t.toLocalDate()
+            val flags = days[date]
+            val (summary, color) = summaryOf(flags)
+            TimelineColumn(
+                getString(if (date == today) CoreR.string.today else CoreR.string.tomorrow), summary, color,
+                flags?.let { DayLine.dayRoles(it, maybe[date], Settings.maybeIsOff(this)) },
+                if (isToday) Schedule.slotOf(t) else -1, if (isToday) t.hour * 60 + t.minute else -1,
+                getString(if (date == today) CoreR.string.no_schedule_yet else CoreR.string.not_published),
+            )
+        }
+        val view = TimelineView(this, columns(now))
+        lists.addView(view, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = ui.dp(8f).toInt() })
+        liveUpdate = { if (ZonedDateTime.now(Schedule.ZONE).toLocalDate() == today) view.setColumns(columns(ZonedDateTime.now(Schedule.ZONE))) }
     }
 
     private fun hhmm(t: ZonedDateTime, now: ZonedDateTime): String = clock(t, now)

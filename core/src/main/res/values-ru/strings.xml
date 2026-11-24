@@ -130,4 +130,17 @@
     <string name="app_labels_title">Подписи часов в приложении (два кольца)</string>
     <string name="tile_next_title">На тайле: сколько длится следующая фаза</string>
     <string name="push_setting">Мгновенные обновления графика (push через Google)</string>
+    <string name="app_view_title">Вид графика</string>
+    <string name="view_ring">Кольцо</string>
+    <string name="view_line">Линия</string>
+    <string name="view_timeline">Вертикальная шкала</string>
+    <string name="view_stages">Ближайшие этапы</string>
+    <string name="event_off">Свет пропадёт</string>
+    <string name="event_on">Свет вернётся</string>
+    <string name="event_in">через %1$s</string>
+    <string name="event_tomorrow_short">завтра</string>
+    <string name="not_published">График ещё не опубликован</string>
+    <string name="upcoming_title">Ближайшие изменения</string>
+    <string name="tile_line_name">Wattlo · линия</string>
+    <string name="until_time">до %1$s</string>
 </resources>

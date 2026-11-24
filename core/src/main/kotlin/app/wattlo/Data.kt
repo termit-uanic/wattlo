@@ -322,6 +322,17 @@ object Settings {
         if (isWatch) return setAppRings(c, rings)
         p(c).edit().putInt("wearAppRings", if (rings == 2) 2 else 1).apply(); touch(c)
     }
+    /** How the app screens draw the schedule (see [AppView]); the phone and the watch each have their own. */
+    fun appView(c: Context): AppView =
+        AppView.of(p(c).getString("appView", null), if (isWatch) AppView.WATCH else AppView.PHONE)
+    fun setAppView(c: Context, v: AppView) { p(c).edit().putString("appView", v.name).apply(); if (isWatch) touch(c) }
+    fun wearAppView(c: Context): AppView =
+        if (isWatch) appView(c) else AppView.of(p(c).getString("wearAppView", null), AppView.WATCH)
+    fun setWearAppView(c: Context, v: AppView) {
+        if (isWatch) return setAppView(c, v)
+        p(c).edit().putString("wearAppView", v.name).apply(); touch(c)
+    }
+
     fun wearAppInnerLabels(c: Context): Boolean =
         if (isWatch) appInnerLabels(c) else p(c).getBoolean("wearAppInnerLabels", true)
     fun setWearAppInnerLabels(c: Context, v: Boolean) {
@@ -447,6 +458,8 @@ object Settings {
         val push: Boolean = true,
         // the name of the main queue ("home"); empty = none
         val mainLabel: String = "",
+        // how the watch's app draws the schedule: a name of [AppView]
+        val wearAppView: String = AppView.RING.name,
     ) {
         /** Values from the other device are not trusted blindly: anything out of range falls back to the defaults. */
         fun sanitized(): Synced {
@@ -456,6 +469,7 @@ object Settings {
                 source = if (r.sources.any { it.name == source }) source else r.sources.first().name,
                 queue = queue.takeIf { it in r.queues } ?: r.defaultQueue,
                 mainLabel = mainLabel.trim().take(MAX_LABEL),
+                wearAppView = AppView.of(wearAppView, AppView.WATCH).name,
             ).clamped()
         }
 
@@ -473,6 +487,7 @@ object Settings {
         source(c).name, queue(c), maybeIsOff(c), notifyOff(c), notifyOn(c), quietFrom(c), quietTo(c),
         notifyTodayChanged(c), notifyTomorrowNew(c),
         tileRings(c), tileInnerLabels(c), tileShowNext(c), wearAppRings(c), wearAppInnerLabels(c), region(c).name, pushEnabled(c), mainLabel(c),
+        wearAppView(c).name,
     )
 
     /** When the shared settings were last changed on any device (ms since epoch; 0 = never). */
@@ -504,6 +519,7 @@ object Settings {
             .putInt(if (isWatch) "appRings" else "wearAppRings", v.wearAppRings)
             .putBoolean(if (isWatch) "appInnerLabels" else "wearAppInnerLabels", v.wearAppInnerLabels)
             .putBoolean("push", v.push)
+            .putString(if (isWatch) "appView" else "wearAppView", v.wearAppView)
             .putLong("syncTs", ts).apply()
         // The name goes with the main queue. A device that has no name for the queue it switched to sends none:
         // that must not wipe the name this device has for it, so an empty name counts only for the same queue.

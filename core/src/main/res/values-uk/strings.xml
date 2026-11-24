@@ -130,4 +130,17 @@
     <string name="app_labels_title">Підписи годин у застосунку (два кільця)</string>
     <string name="tile_next_title">На тайлі: скільки триває наступна фаза</string>
     <string name="push_setting">Миттєві оновлення графіка (push через Google)</string>
+    <string name="app_view_title">Вигляд графіка</string>
+    <string name="view_ring">Кільце</string>
+    <string name="view_line">Лінія</string>
+    <string name="view_timeline">Вертикальна шкала</string>
+    <string name="view_stages">Найближчі етапи</string>
+    <string name="event_off">Світло зникне</string>
+    <string name="event_on">Світло з’явиться</string>
+    <string name="event_in">через %1$s</string>
+    <string name="event_tomorrow_short">завтра</string>
+    <string name="not_published">Графік ще не опубліковано</string>
+    <string name="upcoming_title">Найближчі зміни</string>
+    <string name="tile_line_name">Wattlo · лінія</string>
+    <string name="until_time">до %1$s</string>
 </resources>

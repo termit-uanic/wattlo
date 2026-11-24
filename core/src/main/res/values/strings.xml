@@ -151,4 +151,17 @@
     <string name="app_labels_title">App hour labels (two rings)</string>
     <string name="tile_next_title">Tile: how long the next phase lasts</string>
     <string name="push_setting">Instant schedule updates (push via Google)</string>
+    <string name="app_view_title">Schedule view</string>
+    <string name="view_ring">Ring</string>
+    <string name="view_line">Line</string>
+    <string name="view_timeline">Vertical timeline</string>
+    <string name="view_stages">Coming phases</string>
+    <string name="event_off">Power goes off</string>
+    <string name="event_on">Power comes back</string>
+    <string name="event_in">in %1$s</string>
+    <string name="event_tomorrow_short">tomorrow</string>
+    <string name="not_published">The schedule is not published yet</string>
+    <string name="upcoming_title">Upcoming changes</string>
+    <string name="tile_line_name">Wattlo · line</string>
+    <string name="until_time">until %1$s</string>
 </resources>

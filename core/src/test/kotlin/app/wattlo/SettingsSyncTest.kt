@@ -39,6 +39,12 @@ class SettingsSyncTest {
         assertEquals("", ok.sanitized().mainLabel) // an older device sends none
     }
 
+    @Test fun sanitized_wearAppViewMustBeOneOfTheWatchViews() {
+        assertEquals(AppView.LINE.name, ok.copy(wearAppView = "LINE").sanitized().wearAppView)
+        assertEquals(AppView.RING.name, ok.copy(wearAppView = "TIMELINE").sanitized().wearAppView)
+        assertEquals(AppView.RING.name, ok.copy(wearAppView = "junk").sanitized().wearAppView)
+    }
+
     @Test fun sanitized_noRegionMeansPoltava() = assertEquals(Region.POLTAVA.name, ok.sanitized().region)
 
     @Test fun sanitized_unknownRegionFallsBackToPoltava() = assertEquals(Region.POLTAVA.name, ok.copy(region = "MARS").sanitized().region)
