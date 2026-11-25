@@ -63,7 +63,10 @@ enum class Source(val host: String, val url: String) {
         }
         BEZSVITLA -> Schedule.parseBezsvitla(Http.request("https://bezsvitla.com.ua/${region.slug}"), today, queue)
             .mapValues { bits(it.value) }
-        WATTLO -> JsonSources.wattlo(Http.request("https://wattlo.poltorak.family/v1/regions/${region.slug}.json"), queue, host)
+        WATTLO -> Http.request("https://wattlo.poltorak.family/v1/regions/${region.slug}.json").let { json ->
+            FetchInfo.updatedAt.set(JsonSources.wattloUpdatedAt(json))
+            JsonSources.wattlo(json, queue, host)
+        }
         YASNO -> {
             val (regionId, dsoId) = region.yasno ?: throw FetchError(R.string.err_schedule_not_found, queue)
             JsonSources.yasno(Http.request("https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/$regionId/dsos/$dsoId/planned-outages"), queue)
@@ -630,6 +633,10 @@ object Store {
 
     fun fetchedAt(c: Context, q: String? = null): Long = p(c, q).getLong("fetched", 0L)
 
+    /** "updatedAt" of the schedule file the main queue's data came from (0: unknown, e.g. another source). */
+    fun dataUpdatedAt(c: Context): Long = p(c, null).getLong("updatedAtSrc", 0L)
+    fun setDataUpdatedAt(c: Context, ms: Long) { p(c, null).edit().putLong("updatedAtSrc", ms).apply() }
+
     /** When tomorrow's schedule was last asked of the source (see [Fetcher]: it is rechecked at most hourly). */
     fun tomorrowCheckedAt(c: Context, q: String? = null): Long = p(c, q).getLong("tomorrowChecked", 0L)
     fun markTomorrowChecked(c: Context, at: Long, q: String? = null) { p(c, q).edit().putLong("tomorrowChecked", at).apply() }
@@ -641,6 +648,11 @@ object Store {
 
     fun error(c: Context, q: String? = null): String? = p(c, q).getString("error", null)
     fun setError(c: Context, msg: String, q: String? = null) { p(c, q).edit().putString("error", msg).apply() }
+}
+
+/** What the last fetch of this thread learnt besides the schedule: the "updatedAt" of the file it came from. */
+object FetchInfo {
+    val updatedAt: ThreadLocal<Long> = ThreadLocal.withInitial { 0L }
 }
 
 object Fetcher {
@@ -675,6 +687,7 @@ object Fetcher {
         val now = System.currentTimeMillis()
         val tomorrow = today.plusDays(1)
         val withTomorrow = tomorrow !in Store.raw(c, extra) || now - Store.tomorrowCheckedAt(c, extra) >= TOMORROW_RECHECK_MS
+        FetchInfo.updatedAt.set(0L)
         val days = loadWithFallback(region, source, queue, today, hour, withTomorrow)
         // settings changed while the request was in flight: the result is stale
         if (extra == null && (region != Settings.region(c) || source != Settings.source(c) || queue != Settings.queue(c))) return false
@@ -685,6 +698,8 @@ object Fetcher {
         val missing = asked.filter { it.isAfter(today) && it !in days }
         val before = Store.raw(c, extra)
         Store.save(c, days, missing, extra)
+        // the time the file says its schedule last changed: a push that is not newer than this has nothing to fetch
+        if (extra == null) Store.setDataUpdatedAt(c, FetchInfo.updatedAt.get())
         if (tomorrow in asked) Store.markTomorrowChecked(c, now, extra)
         if (extra == null) ScheduleSync.push(c) // the watch gets the news at once (no-op on the watch itself)
         // reminders and the surfaces follow the main queue only
@@ -856,8 +871,17 @@ object Refresh {
         )
     }
 
+    /**
+     * Whether a push is news: its "updatedAt" is newer than the one of the schedule file this device already has (from
+     * its own fetch or from the phone). Unknown on either side counts as news. A push that was slow (the watch sleeps)
+     * often arrives after the phone has passed the same schedule on; fetching again would find nothing.
+     */
+    fun pushIsNews(haveUpdatedAt: Long, pushedUpdatedAt: Long): Boolean =
+        haveUpdatedAt <= 0L || pushedUpdatedAt <= 0L || haveUpdatedAt < pushedUpdatedAt
+
     /** A push said that a schedule changed: refresh now, whatever the phone has delivered, and replace a running one. */
-    fun onPush(c: Context) {
+    fun onPush(c: Context, pushedUpdatedAt: Long = 0L) {
+        if (!pushIsNews(Store.dataUpdatedAt(c), pushedUpdatedAt)) return
         WorkManager.getInstance(c).enqueueUniqueWork(
             "push", ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<RefreshWorker>().setConstraints(net)

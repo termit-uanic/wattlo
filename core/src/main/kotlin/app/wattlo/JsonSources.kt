@@ -28,6 +28,10 @@ object JsonSources {
      * 7 minutes; a file that was checked longer ago than [WATTLO_MAX_AGE], has no "checkedAt" or no day of today means the
      * collector has stopped: [FetchError], and the next source of the region is asked. [source] is named in the message.
      */
+    /** When the schedule file last changed ("updatedAt" in it), ms since epoch; 0 when it is missing. */
+    fun wattloUpdatedAt(json: String): Long =
+        runCatching { Instant.parse(JSONObject(json).optString("updatedAt")).toEpochMilli() }.getOrDefault(0L)
+
     fun wattlo(json: String, queue: String, source: String, now: Instant = Instant.now()): Map<LocalDate, IntArray> {
         val root = JSONObject(json)
         val checked = runCatching { Instant.parse(root.optString("checkedAt")) }.getOrNull()

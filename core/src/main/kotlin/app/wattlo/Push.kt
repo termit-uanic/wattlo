@@ -50,16 +50,16 @@ object Push {
     }
 
     /** A message arrived: refresh if it is about a queue we follow (a stale subscription may still deliver one). */
-    fun onMessage(c: Context, region: String?, queue: String?) {
+    fun onMessage(c: Context, region: String?, queue: String?, updatedAt: String? = null) {
         val r = Region.entries.firstOrNull { it.slug == region } ?: return
         if (queue == null || topic(r, queue) !in wanted(c)) return
         Log.i("Push", "changed: ${topic(r, queue)}")
-        Refresh.onPush(c)
+        Refresh.onPush(c, runCatching { java.time.Instant.parse(updatedAt).toEpochMilli() }.getOrDefault(0L))
     }
 }
 
 class PushService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
-        Push.onMessage(applicationContext, message.data["region"], message.data["queue"])
+        Push.onMessage(applicationContext, message.data["region"], message.data["queue"], message.data["updatedAt"])
     }
 }

@@ -55,6 +55,7 @@ object ScheduleSync {
                 it.dataMap.putString("queue", Settings.queue(c))
                 it.dataMap.putString("days", days)
                 it.dataMap.putLong("fetchedAt", Store.fetchedAt(c))
+                it.dataMap.putLong("updatedAt", Store.dataUpdatedAt(c))
                 it.dataMap.putString("source", Settings.source(c).name)
             }.asPutDataRequest().setUrgent()
             Wearable.getDataClient(c.applicationContext).putDataItem(req)
@@ -90,6 +91,7 @@ object ScheduleSync {
         if (!ok) return
         Log.i(TAG, "from the phone: fetchedAt=${m.getLong("fetchedAt")} source=${m.getString("source")}")
         Fetcher.acceptFromPhone(c.applicationContext, days, m.getLong("fetchedAt"))
+        Store.setDataUpdatedAt(c, m.getLong("updatedAt", 0L)) // an older phone sends none: 0 = unknown
     }
 
     /** Watch: the data that came from the phone is recent, no reason to ask the internet. */
